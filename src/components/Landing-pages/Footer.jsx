@@ -19,15 +19,41 @@ export default function Footer() {
           <a href="/terms-condition" className=" text-gray-400 hover:text-yellow-500 text-sm transition-colors duration-300">
             Terms and Conditions
           </a>
+
         </div>
 
         <hr className="border-gray-700 mx-auto w-3/4 mb-8" />
 
+        <div className='space-y-1'>
+          <div className="text-center  ">
+            <p className="text-gray-400 text-sm">💬 Help & Support</p>
+          </div>
+          <div className="text-center flex flex-col  space-x-3">
+          <div>
+            <a className="text-gray-400 hover:text-yellow-500 text-sm transition-colors duration-300">
+              📞 +91 91501 82615
+            </a>
+            </div>
+            <div>
+            <a className="text-gray-400 hover:text-yellow-500 text-sm transition-colors duration-300">
+              ✉️ thelogicqr@gmail.com
+            </a>
+            </div>
+            
+            <div>
+            <a className="text-gray-400 hover:text-yellow-500 text-sm transition-colors duration-300">
+            📍 Pandiyan Street, Velachery, Chennai-600042
+            </a>
+            </div>
+           
+          </div>
+
+        </div>
         {/* Copyright */}
-        <p className="text-center text-gray-400 text-sm">
+        <p className="text-center text-gray-400 text-sm pt-2">
           © {new Date().getFullYear()} LogicQR. All rights reserved.<br className="md:hidden" />
-          <span className="md:mx-2">Developed with</span> 
-          <span className="text-red-500 mx-1">❤</span> 
+          <span className="md:mx-2">Developed with</span>
+          <span className="text-red-500 mx-1">❤</span>
           <span className="md:mx-2">by</span>
           <a href="https://webzspot.com" className="text-yellow-500 hover:underline ml-1">
             Webzspot Technologies

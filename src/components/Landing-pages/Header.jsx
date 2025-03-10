@@ -97,7 +97,7 @@ export default function Header() {
                   <span 
                     className={`block h-0.5 w-full rounded-full transition-all duration-300 ease-in-out ${
                       isOpen 
-                        ? 'transform rotate-45 translate-y-1.5 bg-blue-600' 
+                        ? 'transform rotate-45 translate-y-1.5 bg-gray-800' 
                         : `${isScrolled ? 'bg-gray-700' : 'bg-white'}`
                     }`}
                   />
@@ -111,7 +111,7 @@ export default function Header() {
                   <span 
                     className={`block h-0.5 w-full rounded-full transition-all duration-300 ease-in-out ${
                       isOpen 
-                        ? `transform -rotate-45 -translate-y-1.5 bg-blue-600`
+                        ? `transform -rotate-45 -translate-y-1.5 bg-gray-800`
                         : `${isScrolled ? 'bg-gray-700' : 'bg-white'}`
                     }`}
                   />

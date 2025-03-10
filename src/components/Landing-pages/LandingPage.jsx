@@ -138,8 +138,9 @@ const LandingPage = () => {
                 </h1>
                 <p className="text-xl text-gray-600 mb-8 max-w-2xl mx-auto">
                   Automate review management, enhance customer experience, and boost your online reputation
-                  with our intelligent QR-based solution.
+                  with our intelligent QR-based solution.<br/> Founder & CEO: Jaromthiyanesh John William
                 </p>
+                
                 <div className="flex justify-center space-x-4">
                   {/* <Link to={'/register'} className="bg-indigo-600 text-white px-8 py-3 rounded-lg hover:bg-indigo-700 transition-all">
               Get Started
@@ -319,7 +320,7 @@ const LandingPage = () => {
 
             <div className="grid md:grid-cols-2 container mx-auto mt-10 p-4 md:p-10 gap-10">
               {/* QR Scan Link */}
-              <div className="bg-white rounded-2xl shadow-xl overflow-hidden transform transition-all duration-300 hover:scale-105">
+              <div className="bg-white rounded-2xl shadow-xl overflow-hidden transform transition-all duration-300 md:hover:scale-105">
                 <div className="h-72 bg-blue-50 relative">
                   <div className="absolute inset-0 flex items-center justify-center p-6">
                     <img
@@ -367,7 +368,7 @@ const LandingPage = () => {
               </div>
 
               {/* QR Bar */}
-              <div className="bg-white rounded-2xl shadow-xl overflow-hidden transform transition-all duration-300 hover:scale-105">
+              <div className="bg-white rounded-2xl shadow-xl overflow-hidden transform transition-all duration-300 md:hover:scale-105">
                 <div className="h-72 bg-purple-50 relative">
                   <div className="absolute inset-0 flex items-center justify-center p-6">
                     <img
