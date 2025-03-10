@@ -114,7 +114,7 @@ const LandingPage = () => {
         <meta name="description"
           content="LogicQR helps businesses collect feedback through QR codes. With LogicQR, you can easily track reviews, monitor insights, and improve business growth." />
       </Helmet>
-      <div className='bg-gradient-to-r from-blue-100 to-gray-50'>
+      <div className='bg-gradient-to-r from-blue-100 to-gray-50 md:pt-0 pt-8'>
         <div className=' '>
           <div className="lg:min-h-screen h-[80vh] container mx-auto  text-center flex flex-col justify-center items-center p-2 lg:p-6 relative overflow-hidden"
           //   style={{

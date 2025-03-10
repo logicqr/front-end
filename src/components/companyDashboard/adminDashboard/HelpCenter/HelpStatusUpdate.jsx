@@ -50,10 +50,14 @@ const HelpStatusUpdate = () => {
 
     const updateStatus = async () => {
         setLoading(true)
+        setTicket((prevTicket) => ({
+            ...prevTicket,
+            status: selectedStatus,
+        }));
+        setStatus(selectedStatus);
         try {
             await axiosInstance.put(`/users-help-center/${id}/status`, { status: selectedStatus });
-            setStatus(selectedStatus);
-            getTicket()
+          
         } catch (error) {
             console.error("Error updating status", error);
         }finally{

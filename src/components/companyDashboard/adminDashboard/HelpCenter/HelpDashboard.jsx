@@ -3,7 +3,7 @@ import { IoTicketSharp } from "react-icons/io5";
 import { TbProgressAlert } from "react-icons/tb";
 import { RiGitClosePullRequestLine } from "react-icons/ri";
 import { TbProgressCheck } from "react-icons/tb";
-import { FaEnvelope, FaCalendarAlt, FaTag, FaTrash } from "react-icons/fa";
+import {  FaCalendarAlt, FaTag, FaTrash } from "react-icons/fa";
 import { jsPDF } from "jspdf";
 import { toast, ToastContainer } from 'react-toastify';
 import { FiUploadCloud } from "react-icons/fi";
@@ -305,7 +305,6 @@ const HelpDashboard = () => {
                   <strong>ID:</strong> {ticket.user_id || "N/A"}
                 </p>
                 <p className="flex items-center text-gray-700">
-                  <FaEnvelope className="mr-2 text-blue-600" />
                   <strong>Email:</strong> {ticket.email || "N/A"}
                 </p>
                 <p className="text-gray-700">

@@ -551,7 +551,7 @@ const EmployeesDetails = () => {
                                     Show More
                                 </button>
 
-                                <div className="flex justify-end gap-3 mt-4">
+                                {/* <div className="flex justify-end gap-3 mt-4">
                                     <button
                                         onClick={() => handleEdit(emp)}
                                         className="text-blue-600 hover:text-blue-800"
@@ -564,7 +564,7 @@ const EmployeesDetails = () => {
                                     >
                                         <FiTrash />
                                     </button>
-                                </div>
+                                </div> */}
                             </div>
                         ))}
                     </div>

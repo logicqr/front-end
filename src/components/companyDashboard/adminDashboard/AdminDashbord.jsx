@@ -183,12 +183,12 @@ const AdminDashboard = () => {
               <h3 className="font-semibold text-gray-800">
                 Team Members
               </h3>
-              {!loading && (
+              {/* {!loading && (
                 <button className="text-blue-600 text-sm flex items-center gap-1 hover:gap-2 transition-all font-medium">
                   {employees.length ? "View All" : "Add Member"}
                   <FaChevronRight className="text-xs mt-0.5" />
                 </button>
-              )}
+              )} */}
             </div>
             <div className="space-y-3">
               {loading ? (
