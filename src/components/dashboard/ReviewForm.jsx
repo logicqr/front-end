@@ -23,7 +23,7 @@ const ReviewForm = () => {
     const checkSubscription = async () => {
       try {
         const response = await axios.get(
-          `https://back-end-g1hg.onrender.com/v1/subscription/check/${userId}`
+          `https://back-end-ivnr.onrender.com/v1/subscription/check/${userId}`
         );
         // console.log(response)
         setIsSubscriptionActive(response.data.isActive);
@@ -82,7 +82,7 @@ const ReviewForm = () => {
     setError("");
     try {
       const response = await axios.post(
-        `https://back-end-g1hg.onrender.com/v1/review/${userId}`,
+        `https://back-end-ivnr.onrender.com/v1/review/${userId}`,
         {
           name: skipDetails ? null : name,
           comment: skipDetails ? null : comment,

@@ -71,7 +71,7 @@ const LandingPage = () => {
     }
 
     try {
-      const response = await axios.post("https://back-end-g1hg.onrender.com/v1/send-mail", formData);
+      const response = await axios.post("https://back-end-ivnr.onrender.com/v1/send-mail", formData);
       if (response.status === 200) {
         setSuccessMessage("Your message has been sent successfully!");
         setFormData({ name: "", email: "", phone: "", message: "" });
