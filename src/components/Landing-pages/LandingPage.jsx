@@ -6,8 +6,8 @@ import { FaArrowRight } from "react-icons/fa6";
 import { IoIosRadioButtonOff, IoIosRadioButtonOn } from "react-icons/io";
 import { PiArrowFatLinesUpLight } from "react-icons/pi";
 import Footer from './Footer';
-// import { Link } from 'react-router-dom';
-import { Link } from "react-scroll";
+import { Link } from 'react-router-dom';
+// import { Link } from "react-scroll";
 import { Helmet } from 'react-helmet';
 import axios from 'axios';
 
@@ -71,7 +71,7 @@ const LandingPage = () => {
     }
 
     try {
-      const response = await axios.post("https://back-end-sq5q.onrender.com/v1/send-mail", formData);
+      const response = await axios.post("https://back-end-g1hg.onrender.com/v1/send-mail", formData);
       if (response.status === 200) {
         setSuccessMessage("Your message has been sent successfully!");
         setFormData({ name: "", email: "", phone: "", message: "" });
@@ -116,7 +116,7 @@ const LandingPage = () => {
       </Helmet>
       <div className='bg-gradient-to-r from-blue-100 to-gray-50 md:pt-0 pt-8'>
         <div className=' '>
-          <div className="lg:min-h-screen h-[80vh] container mx-auto  text-center flex flex-col justify-center items-center p-2 lg:p-6 relative overflow-hidden"
+          <div className="lg:min-h-screen h-[80vh]   text-center flex flex-col justify-center items-center p-2 lg:p-6 relative overflow-hidden"
           //   style={{
           //   backgroundImage: 'url("https://img.freepik.com/free-photo/realistic-phone-with-social-media_23-2151459589.jpg")',
           //   backgroundSize: "cover",
@@ -138,27 +138,27 @@ const LandingPage = () => {
                 </h1>
                 <p className="text-xl text-gray-600 mb-8 max-w-2xl mx-auto">
                   Automate review management, enhance customer experience, and boost your online reputation
-                  with our intelligent QR-based solution.<br/> Founder & CEO: Jaromthiyanesh John William
+                  with our intelligent QR-based solution.
                 </p>
                 
                 <div className="flex justify-center space-x-4">
-                  {/* <Link to={'/register'} className="bg-indigo-600 text-white px-8 py-3 rounded-lg hover:bg-indigo-700 transition-all">
+                  <Link to={'/register'} className="bg-indigo-600 text-white px-8 py-3 rounded-lg hover:bg-indigo-700 transition-all">
               Get Started
-              </Link> */}
-                  <Link offset={-80} className="cursor-pointer bg-indigo-600 text-white px-8 py-3 rounded-lg hover:bg-indigo-700 transition-all" to="/contact" smooth={true} duration={500}> Get Started</Link>
-                  {/* <Link to={'/docs'} className="border-2 border-indigo-600 text-indigo-600 px-8 py-3 rounded-lg hover:bg-indigo-50 transition-all">
+              </Link>
+                  {/* <Link offset={-80} className="cursor-pointer bg-indigo-600 text-white px-8 py-3 rounded-lg hover:bg-indigo-700 transition-all" to="/contact" smooth={true} duration={500}> Get Started</Link> */}
+                  <Link to={'/docs'} className="border-2 border-indigo-600 text-indigo-600 px-8 py-3 rounded-lg hover:bg-indigo-50 transition-all">
                   How It Works
-                </Link> */}
+                </Link>
                 </div>
 
               </div>
             </section>
             {/* Vector Illustration */}
-            <div className="absolute bottom-0 right-0 transform translate-x-20 translate-y-20 opacity-90">
+            <div className="hidden md:block absolute bottom-0 right-0 transform translate-x-20 translate-y-20 opacity-90">
               <img
                 src="https://ik.imagekit.io/pds5n5l6d3/LogicQR/User%20section/Home%20page%20image?updatedAt=1741522995477"
                 alt="Review Illustration"
-                className="lg:w-[550px] md-[400px] w-[300px] h-auto"
+                className="lg:w-[480px] md-[400px] w-[300px] h-auto"
               />
             </div>
 
@@ -203,7 +203,7 @@ const LandingPage = () => {
                 </div>
 
                 {/* Right Content Section */}
-                <div className="w-1/2  p-8 flex flex-col mt-5">
+                <div className="w-1/2 h-screen   p-8 flex flex-col mt-5">
                   <div className="w-[90%] mx-auto flex gap-3 rounded-lg">
                     <div>
                       <span className="text-white w-16 h-16 bg-yellow-500 rounded-md flex items-center justify-center text-3xl">
@@ -224,10 +224,10 @@ const LandingPage = () => {
               </div>
 
               {/* Small Screen View */}
-              <div className="lg:hidden bg-[#190900] text-white flex flex-col items-center text-center py-6">
+              <div className="lg:hidden  bg-[#190900] text-white flex flex-col items-center text-center py-6">
                 <h2 className="text-3xl font-bold mb-4">Our Product Benefits</h2>
 
-                <div className="w-11/12 rounded-lg shadow-lg mt-4">
+                <div className="w-11/12  rounded-lg shadow-lg mt-4">
                   <div className="flex flex-col">
                     {/* Icon */}
                     <span className="text-white flex items-center justify-center rounded-md w-16 h-16 bg-yellow-500 text-5xl">
@@ -440,11 +440,11 @@ const LandingPage = () => {
 
 
                   {/* Buttons */}
-                  <div className="mt-6 flex flex-col lg:flex-row items-center md:items-start gap-4">
-                    {/* <Link to={'/register'}className="bg-red-500 text-white px-6 py-3 font-semibold rounded-lg shadow-md hover:bg-red-600">
+                  <div className="mt-6 flex flex-col lg:flex-row items-start gap-4">
+                    <Link to={'/register'}className="bg-red-500 text-white px-6 py-3 font-semibold rounded-lg shadow-md hover:bg-red-600">
                     Get Started Now
-                  </Link> */}
-                    <Link offset={-80} className="cursor-pointer bg-red-500 text-white px-6 py-3 font-semibold rounded-lg shadow-md hover:bg-red-600" to="/contact" smooth={true} duration={500}> Get Started Now</Link>
+                  </Link>
+                    {/* <Link offset={-80} className="cursor-pointer bg-red-500 text-white px-6 py-3 font-semibold rounded-lg shadow-md hover:bg-red-600" to="/contact" smooth={true} duration={500}> Get Started Now</Link> */}
 
                   </div>
                 </div>
@@ -638,7 +638,7 @@ const LandingPage = () => {
                   </div>
 
                   <div className="text-center mb-6">
-                    <span className="text-lg font-medium text-green-600">Just ₹125 per month!</span>
+                    <span className="text-lg font-medium text-green-600">Just ₹4 Rupees per Day!</span>
                   </div>
 
                   <ul className="space-y-3 mb-8">
@@ -686,11 +686,11 @@ const LandingPage = () => {
     </li> */}
                   </ul>
 
-                  {/* <Link to="/register">
+                  <Link to="/register">
                 <button className="w-full bg-blue-600 text-white font-bold py-4 rounded-lg hover:bg-blue-700 transition-colors duration-300 transform hover:scale-105 shadow-lg">
                   Get Started Now
                 </button>
-                </Link> */}
+                </Link>
                 </div>
 
                 {/* Right Plan (Dimmed) */}
@@ -747,7 +747,7 @@ const LandingPage = () => {
               }}
             ></div>
 
-            <div id='/contact' className="relative lg:w-[80%] w-[90%] mx-auto flex flex-col md:flex-row items-center lg:p-8 ">
+            <div  className="relative lg:w-[80%] w-[90%] mx-auto flex flex-col md:flex-row items-center lg:p-8 ">
               {/* Left Side - Form */}
               <div className="md:w-1/2 w-full order-2 md:order-1 p-6">
                 <h2 className="text-3xl font-bold text-gray-900 mb-6">Drop us a line</h2>

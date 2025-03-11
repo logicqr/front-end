@@ -136,7 +136,7 @@ function Dashboard() {
           // console.log(response.data.order.amount);
 
             const options = {
-                key: "rzp_test_wCUQcBRBFudBQm", // Use env variable
+                key: "rzp_live_R4krQLCHamePO8", // Use env variable
                 amount: response.data.order.amount,
                 currency: "INR",
                 order_id: response.data.order.id,

@@ -8,10 +8,10 @@ export default function Footer() {
         <h2 className="text-3xl text-yellow-500 font-bold text-center mb-8">LogicQR</h2>
 
         {/* Navigation Links */}
-        <div className="flex flex-col md:flex-row justify-center items-center gap-8 mb-8">
-          <a href="/" className="text-lg hover:text-yellow-500 transition-colors duration-300">Home</a>
-          <a href="/docs" className="text-lg hover:text-yellow-500 transition-colors duration-300">Documents</a>
-          <a href="/features" className="text-lg hover:text-yellow-500 transition-colors duration-300">Features</a>
+        <div className="flex flex-row justify-center items-center gap-4 md:gap-8 mb-8">
+          <a href="/" className="text-base md:text-lg hover:text-yellow-500 transition-colors duration-300">Home</a>
+          <a href="/docs" className="text-base md:text-lg hover:text-yellow-500 transition-colors duration-300">Documents</a>
+          <a href="/features" className="text-base md:text-lg hover:text-yellow-500 transition-colors duration-300">Features</a>
         </div>
 
         {/* Terms and Conditions */}
@@ -24,7 +24,7 @@ export default function Footer() {
 
         <hr className="border-gray-700 mx-auto w-3/4 mb-8" />
 
-        <div className='space-y-1'>
+        {/* <div className='space-y-1'>
           <div className="text-center  ">
             <p className="text-gray-400 text-sm">💬 Help & Support</p>
           </div>
@@ -48,7 +48,7 @@ export default function Footer() {
            
           </div>
 
-        </div>
+        </div> */}
         {/* Copyright */}
         <p className="text-center text-gray-400 text-sm pt-2">
           © {new Date().getFullYear()} LogicQR. All rights reserved.<br className="md:hidden" />

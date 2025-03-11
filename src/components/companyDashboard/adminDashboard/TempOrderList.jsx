@@ -51,9 +51,21 @@ const TempOrderList = () => {
   }
 
   if (error) {
-    return <div className="pl-16 md:pl-20 flex justify-center items-center h-screen text-red-600">Error: {error}</div>;
+    return <div className="min-h-screen pl-16 md:pl-20 flex items-center justify-center">
+    <div className="max-w-md p-6 bg-red-50 rounded-xl text-red-600 text-center">
+        <h2 className="text-xl font-bold mb-2">⚠️ Loading Error</h2>
+        <p>{error}</p>
+        <button
+            onClick={() => window.location.reload()}
+            className="mt-4 px-4 py-2 bg-red-100 hover:bg-red-200 rounded-lg text-red-600"
+        >
+            Try Again
+        </button>
+    </div>
+</div>
   }
 
+  
   const today = format(new Date(), "yyyy-MM-dd"); // Get today's date in YYYY-MM-DD format
 
   const todayTempOrders = Array.isArray(tempOrders) 

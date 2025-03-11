@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const axiosInstance = axios.create({
-  baseURL: 'https://back-end-sq5q.onrender.com/v1',
+  baseURL: 'https://back-end-g1hg.onrender.com/v1',
 });
 
 axiosInstance.interceptors.response.use(
@@ -18,10 +18,10 @@ axiosInstance.interceptors.response.use(
       //              refreshToken,
       //             });
       //   console.log(response.data)
-
+      
       if (refreshToken) {
         try {
-          const response = await axios.post('https://back-end-sq5q.onrender.com/v1/auth/refresh', {
+          const response = await axios.post('https://back-end-g1hg.onrender.com/v1/auth/refresh', {
             refreshToken,
           });
 // console.log(response)

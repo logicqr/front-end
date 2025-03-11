@@ -23,7 +23,7 @@ const ReviewForm = () => {
     const checkSubscription = async () => {
       try {
         const response = await axios.get(
-          `https://back-end-sq5q.onrender.com/v1/subscription/check/${userId}`
+          `https://back-end-g1hg.onrender.com/v1/subscription/check/${userId}`
         );
         // console.log(response)
         setIsSubscriptionActive(response.data.isActive);
@@ -39,50 +39,50 @@ const ReviewForm = () => {
     checkSubscription();
   }, [userId]);
 
-  const renewSubscription = async () => {
-    setPaying(true)
-    try {
-      const response = await axiosInstance.post("/renew-subscription", {
-        user_id: userId, // Replace with actual user ID
-      });
+  // const renewSubscription = async () => {
+  //   setPaying(true)
+  //   try {
+  //     const response = await axiosInstance.post("/renew-subscription", {
+  //       user_id: userId, // Replace with actual user ID
+  //     });
 
-      if (response.status === 200) {
-        // console.log(response.data.order.id);
-        // console.log(response.data.order.amount);
+  //     if (response.status === 200) {
+  //       // console.log(response.data.order.id);
+  //       // console.log(response.data.order.amount);
 
-        const options = {
-          key: "rzp_test_wCUQcBRBFudBQm", // Use env variable
-          amount: response.data.order.amount,
-          currency: "INR",
-          order_id: response.data.order.id,
-          handler: function (response) {
-            // console.log("Payment Successful:", response);
-            window.location.reload();
-          },
-          prefill: {
-            name: "John Doe",
-            email: "john@example.com",
-            contact: "9876543210",
-          },
-          theme: { color: "#3399cc" },
-        };
+  //       const options = {
+  //         key: "rzp_live_R4krQLCHamePO8", // Use env variable
+  //         amount: response.data.order.amount,
+  //         currency: "INR",
+  //         order_id: response.data.order.id,
+  //         handler: function (response) {
+  //           // console.log("Payment Successful:", response);
+  //           window.location.reload();
+  //         },
+  //         prefill: {
+  //           name: "John Doe",
+  //           email: "john@example.com",
+  //           contact: "9876543210",
+  //         },
+  //         theme: { color: "#3399cc" },
+  //       };
 
-        const rzp1 = new window.Razorpay(options);
-        rzp1.open();
-      }
-    } catch (error) {
-      console.error("Error:", error);
-    } finally {
-      setPaying(false)
-    }
-  };
+  //       const rzp1 = new window.Razorpay(options);
+  //       rzp1.open();
+  //     }
+  //   } catch (error) {
+  //     console.error("Error:", error);
+  //   } finally {
+  //     setPaying(false)
+  //   }
+  // };
 
   const handleSubmit = async (skipDetails = false) => {
     setIsLoading(true);
     setError("");
     try {
       const response = await axios.post(
-        `https://back-end-sq5q.onrender.com/v1/review/${userId}`,
+        `https://back-end-g1hg.onrender.com/v1/review/${userId}`,
         {
           name: skipDetails ? null : name,
           comment: skipDetails ? null : comment,

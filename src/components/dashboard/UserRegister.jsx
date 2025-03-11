@@ -179,7 +179,7 @@ function Register() {
             // console.log(response.data.order.amount);
     
             var options = {
-                key: "rzp_test_wCUQcBRBFudBQm", // Use environment variables for security
+                key: "rzp_live_R4krQLCHamePO8", // Use environment variables for security
                 amount: response.data.order.amount,
                 currency: "INR",
                 order_id: response.data.order.id,

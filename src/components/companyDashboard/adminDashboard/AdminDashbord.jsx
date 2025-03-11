@@ -101,7 +101,7 @@ const AdminDashboard = () => {
 
   if (error) {
     return (
-      <div className="p-6 bg-gray-50 min-h-screen flex items-center justify-center">
+      <div className="p-6 pl-20 bg-gray-50 min-h-screen flex items-center justify-center">
         <div className="text-center max-w-md">
           <div className="text-red-500 text-4xl mb-4">⚠️</div>
           <h2 className="text-xl font-semibold text-gray-800 mb-2">

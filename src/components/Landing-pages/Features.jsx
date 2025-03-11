@@ -176,14 +176,14 @@ const Features = () => {
                   </div>
 
                   <div className="flex flex-col sm:flex-row gap-4">
-                    {/* <Link to='/register'>
+                    <Link to='/register'>
                   <button className="bg-white text-blue-700 font-bold py-3 px-8 rounded-lg text-lg shadow-lg hover:bg-gray-100 transition-all duration-300 transform hover:-translate-y-1">
-                    Get Started Free
+                    Get Started 
                   </button>
                   </Link>
                   <button className="bg-transparent border-2 border-white text-white font-bold py-3 px-8 rounded-lg text-lg hover:bg-white hover:text-blue-700 transition-all duration-300">
                     Watch Demo
-                  </button> */}
+                  </button>
                   </div>
                 </div>
               </div>

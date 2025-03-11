@@ -70,7 +70,7 @@ export default function Header() {
               <NavLink to="/features" isScrolled={isScrolled}>
                 Features
               </NavLink>
-              {/* <Link to="/login">
+              <Link to="/register">
               <button 
                 className={`px-6 py-2 rounded-full font-medium transition-all duration-300 transform hover:scale-105 hover:shadow-lg ${
                   isScrolled 
@@ -80,7 +80,7 @@ export default function Header() {
               >
                 Get Started
               </button>
-              </Link> */}
+              </Link>
             </div>
 
             {/* Mobile Menu Button */}
