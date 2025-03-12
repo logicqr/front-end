@@ -107,7 +107,7 @@ const PayoutDetails = () => {
   const monthlyChartData = Object.entries(monthlyData).map(
     ([name, amount]) => ({
       name,
-      amount: Math.round(statusData[0].value*209),
+      amount: Math.round(statusData[0].value * 209),
     })
   );
 
@@ -180,9 +180,8 @@ const PayoutDetails = () => {
       <div className="container mx-auto">
         <Link
           to="/payout"
-          className={`items-center gap-2 pl-2 text-purple-600 hover:text-purple-800 mb-5 mt-1 ${
-            role ? "flex" : "hidden"
-          }`}
+          className={`items-center gap-2 pl-2 text-purple-600 hover:text-purple-800 mb-5 mt-1 ${role ? "flex" : "hidden"
+            }`}
         >
           <FiArrowLeft className="inline-block" />{" "}
           <span className="">Back to Dashboard</span>
@@ -190,12 +189,12 @@ const PayoutDetails = () => {
 
         <div className="bg-white md:rounded-2xl md:shadow-xl p-3 md:p-6 sm:p-8 md:mb-8">
           <div className="mb-8">
-            <h2 className={`text-2xl sm:text-3xl font-bold text-blue-900 mb-4 ${role?'':'hidden'}`}>
+            <h2 className={`text-2xl sm:text-3xl font-bold text-blue-900 mb-4 ${role ? '' : 'hidden'}`}>
               Employee #{employeeId.slice(-6)} Transaction Overview
             </h2>
 
 
-            
+
 
             <div className={`grid grid-cols-1 md:grid-cols-2 gap-4 mb-8 `}>
               <div className="bg-gradient-to-r from-purple-500 to-blue-500 p-6 rounded-2xl text-white shadow-lg">
@@ -204,7 +203,7 @@ const PayoutDetails = () => {
                     <p className="text-sm opacity-90">Total Processed</p>
                     <p className="text-3xl font-bold mt-2">
                       ₹
-                      {statusData[0].value*209}
+                      {statusData[0].value * 209}
                     </p>
                   </div>
                   <FaRupeeSign className="w-12 h-12 opacity-25" />
@@ -274,7 +273,7 @@ const PayoutDetails = () => {
                           <div className="bg-white p-3 rounded-lg shadow-lg border">
                             <p className="font-semibold">{payload[0]?.name}</p>
                             <p className="text-sm">
-                              ₹{payload[0]?.value * 1000} •{" "}
+                              ₹{payload[0]?.value * 209} •{" "}
                               {(
                                 (payload[0]?.value / transactions.length) *
                                 100
@@ -403,18 +402,16 @@ const PayoutDetails = () => {
                 <div className="flex gap-2">
                   <button
                     onClick={() => handleSort("createdAt")}
-                    className={`px-4 py-2 rounded-xl flex items-center gap-2 text-sm transition-all ${
-                      sortConfig.key === "createdAt"
+                    className={`px-4 py-2 rounded-xl flex items-center gap-2 text-sm transition-all ${sortConfig.key === "createdAt"
                         ? "bg-purple-500 text-white "
                         : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                    }`}
+                      }`}
                   >
                     Date{" "}
                     {sortConfig.key === "createdAt" && (
                       <FiChevronDown
-                        className={`transform ${
-                          sortConfig.direction === "asc" ? "rotate-180" : ""
-                        }`}
+                        className={`transform ${sortConfig.direction === "asc" ? "rotate-180" : ""
+                          }`}
                       />
                     )}
                   </button>
@@ -437,11 +434,10 @@ const PayoutDetails = () => {
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 items-center">
                       <div className="flex items-center gap-3">
                         <div
-                          className={`p-2 rounded-lg ${
-                            transaction.status === "paid"
+                          className={`p-2 rounded-lg ${transaction.status === "paid"
                               ? "bg-green-100"
                               : "bg-amber-100"
-                          }`}
+                            }`}
                         >
                           {transaction.status === "paid" ? (
                             <FiCheckCircle className="text-green-600 w-5 h-5" />
@@ -473,18 +469,17 @@ const PayoutDetails = () => {
                         <div>
                           <p className="text-sm text-gray-500">Status</p>
                           <span
-                            className={`px-3 py-1 rounded-full text-sm font-medium ${
-                              transaction.status === "paid"
+                            className={`px-3 py-1 rounded-full text-sm font-medium ${transaction.status === "paid"
                                 ? "bg-green-100 text-green-800"
                                 : "bg-amber-100 text-amber-800"
-                            }`}
+                              }`}
                           >
                             {transaction.status}
                           </span>
-                          
+
                         </div>
 
-                       
+
 
                         {expandedTransaction === transaction.transaction_id ? (
                           <FiChevronUp className="text-gray-400 group-hover:text-purple-600" />
@@ -535,7 +530,7 @@ const PayoutDetails = () => {
                 ))}
               </div>
             </div>
-            
+
           </div>
         </div>
       </div>
