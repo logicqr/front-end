@@ -166,6 +166,15 @@ function Register() {
     // console.log(formData)
 
     try {
+
+
+      const referralResponse = await axiosInstance.post("/referral-check", { referralCode });
+
+        if (referralResponse.data.message === "Invalid referral code") {
+            setErrorMessage("Invalid referral code. Please enter a valid one.");
+            setLoading(false);
+            return;
+        }
         const { confirmPassword, ...filteredFormData } = formData;
         const response = await axiosInstance.post(
             "/create-order",

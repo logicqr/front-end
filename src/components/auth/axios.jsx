@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const axiosInstance = axios.create({
-  baseURL: 'https://back-end-ivnr.onrender.com/v1',
+  baseURL: 'http://localhost:9004/v1',
 });
 
 axiosInstance.interceptors.response.use(
@@ -21,7 +21,7 @@ axiosInstance.interceptors.response.use(
       
       if (refreshToken) {
         try {
-          const response = await axios.post('https://back-end-ivnr.onrender.com/v1/auth/refresh', {
+          const response = await axios.post('http://localhost:9004/v1/auth/refresh', {
             refreshToken,
           });
 // console.log(response)
