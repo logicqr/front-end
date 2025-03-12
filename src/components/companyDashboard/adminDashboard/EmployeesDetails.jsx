@@ -9,10 +9,10 @@ import {
     FaSortUp,
     FaSortDown,
 } from "react-icons/fa";
-import { FiSearch, FiDownload, FiEdit, FiTrash } from "react-icons/fi";
+import { FiSearch, FiDownload,  } from "react-icons/fi";
 import { HiOutlineUserAdd } from "react-icons/hi";
 import { Link, useNavigate } from "react-router-dom";
-import Nav from "../Nav";
+
 import axiosInstance from "../../auth/axios";
 
 // Implemented Components
@@ -158,46 +158,63 @@ const EmployeesDetails = () => {
         doc.save("Employees_Export.pdf");
     
     };
-
     useEffect(() => {
-        setLoading(true)
-        const fetchData = async () => {
+        setLoading(true);
+    
+        const fetchStaffData = async () => {
             try {
-                const [staffResponse, adminResponse, userCountResponse] = await Promise.all([
-                    axiosInstance.get("/staff"),
-                    axiosInstance.get("/admin"),
-                    axiosInstance.get("/user-counts"),
-                ]);
-
-                const staffData = staffResponse.data;
-                const adminData = adminResponse.data;
-                const userCountData = userCountResponse.data;
-
-                const mapEmployeeData = (data) =>
-                    data.data.map((emp) => ({
-                        id: emp.employee_id,
-                        name: emp.employeeName,
-                        role: emp.role.charAt(0) + emp.role.slice(1).toLowerCase(),
-                        referralId: emp.referralCode,
-                        email: emp.employeeEmail,
-                        mobile: emp.employeePhoneNumber,
-                        responsibleEmployeeId: emp.responsibleEmployeeId || null,
-                    }));
-
-                setStaff(mapEmployeeData(staffData));
-                setAdmin(mapEmployeeData(adminData));
+                const response = await axiosInstance.get("/staff");
+                const staffData = response.data;
+                setStaff(staffData.data.map((emp) => ({
+                    id: emp.employee_id,
+                    name: emp.employeeName,
+                    role: emp.role.charAt(0) + emp.role.slice(1).toLowerCase(),
+                    referralId: emp.referralCode,
+                    email: emp.employeeEmail,
+                    mobile: emp.employeePhoneNumber,
+                    responsibleEmployeeId: emp.responsibleEmployeeId || null,
+                })));
+            } catch (error) {
+                console.error("Error fetching staff data:", error);
+            }
+        };
+    
+        const fetchAdminData = async () => {
+            try {
+                const response = await axiosInstance.get("/admin");
+                const adminData = response.data;
+                setAdmin(adminData.data.map((emp) => ({
+                    id: emp.employee_id,
+                    name: emp.employeeName,
+                    role: emp.role.charAt(0) + emp.role.slice(1).toLowerCase(),
+                    referralId: emp.referralCode,
+                    email: emp.employeeEmail,
+                    mobile: emp.employeePhoneNumber,
+                    responsibleEmployeeId: emp.responsibleEmployeeId || null,
+                })));
+            } catch (error) {
+                console.error("Error fetching admin data:", error);
+            }
+        };
+    
+        const fetchUserCounts = async () => {
+            try {
+                const response = await axiosInstance.get("/user-counts");
+                const userCountData = response.data;
                 setUser(userCountData.totalUsers);
                 setActiveUser(userCountData.activeUsers);
             } catch (error) {
-                console.error("Error fetching data:", error);
-            } finally{
-                setLoading(false);
+                console.error("Error fetching user count data:", error);
             }
         };
-
+    
+        const fetchData = async () => {
+            await Promise.all([fetchStaffData(), fetchAdminData(), fetchUserCounts()]);
+            setLoading(false);
+        };
+    
         fetchData();
-    }, []); // Empty dependency array to fetch once on mount
-
+    }, []);
 
 
     const employees = activeTab === "staffs" ? staff : admin;
