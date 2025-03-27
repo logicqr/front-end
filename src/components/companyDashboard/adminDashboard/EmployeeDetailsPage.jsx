@@ -58,6 +58,7 @@ const EmployeeDetailsPage = () => {
               <span className="px-4 py-2 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">
                 Employee ID: {employeeId}
               </span>
+              
             </div>
           </div>
 
@@ -79,8 +80,15 @@ const EmployeeDetailsPage = () => {
                         day: 'numeric'
                       })} 
                     />
-                    <div className="flex items-center">
-                      <span className={`px-3 py-1 rounded-full text-sm ${
+                    <div className="flex items-center gap-3 md:gap-8">
+                    <DetailItem label="subscriptionEndDate" 
+                      value={new Date(staff.subscriptionEndDate).toLocaleDateString('en-US', {
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric'
+                      })} 
+                    />
+                    <span className={`px-3 py-1 rounded-full text-sm ${
                         staff.isActive 
                           ? 'bg-green-100 text-green-800' 
                           : 'bg-red-100 text-red-800'
@@ -93,6 +101,7 @@ const EmployeeDetailsPage = () => {
                     <DetailItem label="Email" value={staff.email} />
                     <DetailItem label="Phone" value={staff.phoneNumber} />
                     <DetailItem label="Business Type" value={staff.businessType} />
+                    
                   </div>
                 </div>
               ))}

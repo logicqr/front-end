@@ -137,9 +137,12 @@ export default function Header() {
             <MobileLink to="/features">
               Features
             </MobileLink>
+            
+              <Link to={'/register'}>
             <button className={`w-full mt-6 px-6 py-3  rounded-xl hover:from-blue-600 hover:to-indigo-700 transition-all duration-300 shadow-md hover:shadow-lg transform hover:-translate-y-0.5 ${isScrolled?'bg-gradient-to-r from-blue-500 to-indigo-600 text-white':'bg-blue-50 text-blue-700'}`}>
               Get Started
             </button>
+            </Link>
           </div>
         </div>
       </nav>

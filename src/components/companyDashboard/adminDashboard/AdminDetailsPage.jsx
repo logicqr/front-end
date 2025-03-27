@@ -197,6 +197,11 @@ const UserCard = ({ user }) => {
         month: 'short',
         day: 'numeric'
     });
+    // const subscriptionEnd = new Date(user.subscriptionEndDate).toLocaleDateString('en-US', {
+    //     year: 'numeric',
+    //     month: 'short',
+    //     day: 'numeric'
+    // });
 
     return (
         <div className="bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow p-6">
@@ -229,6 +234,9 @@ const UserCard = ({ user }) => {
                         <p className="text-sm text-gray-600 mt-1">
                             <span className="font-medium">Joined:</span> {joinDate}
                         </p>
+                        {/* <p className="text-sm text-gray-600 mt-1">
+                            <span className="font-medium">subscriptionEnd:</span> {subscriptionEnd}
+                        </p> */}
                     </div>
                 </div>
                 <span className="px-2 py-1 text-xs font-medium bg-yellow-100 text-yellow-800 rounded-full">

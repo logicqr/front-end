@@ -1,15 +1,19 @@
 import React from 'react';
-import { useState, useEffect } from "react";
+import { useState,useEffect,useRef } from "react";
 import { PiHandTap } from "react-icons/pi";
-import { TbFilterPin, TbStar, TbMessageChatbot } from "react-icons/tb";
+import { TbFilterPin,TbStar,TbMessageChatbot } from "react-icons/tb";
 import { FaArrowRight } from "react-icons/fa6";
 import { IoIosRadioButtonOff, IoIosRadioButtonOn } from "react-icons/io";
 import { PiArrowFatLinesUpLight } from "react-icons/pi";
 import Footer from './Footer';
-import { Link } from 'react-router-dom';
+import { Link, Navigate } from 'react-router-dom';
+import axios from 'axios';
+import { FiUsers, FiGlobe, FiAward, FiBarChart2, FiArrowRight } from 'react-icons/fi';
+import { FaUsers, FaGlobeAmericas, FaTrophy, FaChartLine,FaStar } from 'react-icons/fa';
+import { motion } from 'framer-motion';
 // import { Link } from "react-scroll";
 import { Helmet } from 'react-helmet';
-import axios from 'axios';
+
 
 
 
@@ -39,6 +43,140 @@ const benefits = [
 ];
 
 const LandingPage = () => {
+  const [isHovered, setIsHovered] = useState(null);
+  const [counts, setCounts] = useState([0, 0, 0, 0]);
+  const [isVisible, setIsVisible] = useState(false);
+  const sectionRef = useRef(null);
+
+  const metrics = [
+    {
+      icon: FaUsers,
+      target: 10000,
+      unit: '+',
+      label: 'Active Users',
+      color: 'text-blue-500',
+      hoverColor: 'text-blue-600',
+      duration: 2.5
+    },
+    {
+      icon: FaStar,
+      target: "5",
+      unit: '/5',
+      label: 'Customer Satisfaction',
+      color: 'text-yellow-500',
+      hoverColor: 'text-yellow-600',
+      duration: 1.5
+    },
+    {
+      icon: FaTrophy,
+      target: "167800",
+      unit: '+',
+      label: 'Overall Reviews',
+      color: 'text-yellow-500',
+      hoverColor: 'text-yellow-600',
+      duration: 1.5
+    },
+    {
+      icon: FaChartLine,
+      target: 10,
+      unit: 'X',
+      label: 'Growth',
+      color: 'text-purple-500',
+      hoverColor: 'text-purple-600',
+      duration: 2
+    }
+  ];
+
+  const users = [
+    { id: 1, name: 'user1' },
+    { id: 2, name: 'user2' },
+    { id: 3, name: 'user3' },
+    { id: 4, name: 'user4' },
+    { id: 5, name: 'user5' }
+  ];
+
+  // Custom intersection observer
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setIsVisible(true);
+          observer.unobserve(entry.target);
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    if (sectionRef.current) {
+      observer.observe(sectionRef.current);
+    }
+
+    return () => {
+      if (sectionRef.current) {
+        observer.unobserve(sectionRef.current);
+      }
+    };
+  }, []);
+
+  // Custom count-up animation
+  useEffect(() => {
+    if (!isVisible) return;
+
+    const intervals = metrics.map((metric, index) => {
+      const increment = metric.target / (metric.duration * 60); // 60fps
+      let currentCount = 0;
+
+      return setInterval(() => {
+        currentCount += increment;
+        if (currentCount >= metric.target) {
+          currentCount = metric.target;
+          clearInterval(intervals[index]);
+        }
+
+        setCounts(prev => {
+          const newCounts = [...prev];
+          newCounts[index] = Math.floor(currentCount);
+          return newCounts;
+        });
+      }, 1000 / 60); // 60fps
+    });
+
+    return () => intervals.forEach(interval => clearInterval(interval));
+  }, [isVisible]);
+
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.2,
+        delayChildren: 0.3
+      }
+    }
+  };
+
+  const itemVariants = {
+    hidden: { y: 20, opacity: 0 },
+    visible: {
+      y: 0,
+      opacity: 1,
+      transition: {
+        duration: 0.5,
+        ease: [0.25, 0.1, 0.25, 1]
+      }
+    }
+  };
+
+  const hoverVariants = {
+    hover: {
+      y: -10,
+      scale: 1.03,
+      transition: {
+        duration: 0.3,
+        ease: "easeOut"
+      }
+    }
+  };
 
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [formData, setFormData] = useState({
@@ -224,39 +362,59 @@ const LandingPage = () => {
               </div>
 
               {/* Small Screen View */}
-              <div className="lg:hidden  bg-[#190900] text-white flex flex-col items-center text-center py-6">
-                <h2 className="text-3xl font-bold mb-4">Our Product Benefits</h2>
-
-                <div className="w-11/12  rounded-lg shadow-lg mt-4">
-                  <div className="flex flex-col">
-                    {/* Icon */}
-                    <span className="text-white flex items-center justify-center rounded-md w-16 h-16 bg-yellow-500 text-5xl">
-                      {selectedBenefit.icon}
-                    </span>
-
-                    {/* Benefit Title & Description */}
-                    <div className="text-left">
-                      <h3 className="text-2xl font-bold mt-2">{selectedBenefit.title}</h3>
-                      <p className="text-gray-300 mt-2">{selectedBenefit.description}</p>
-                    </div>
-
-                    {/* Benefit Image */}
-                    <img src={selectedBenefit.img} alt={selectedBenefit.title} className="rounded-lg h-[350px] w-[450px] object-cover  mt-4" />
-                  </div>
-                </div>
-
-                {/* Indicator Dots */}
-                <div className="flex gap-3 mt-4">
-                  {benefits.map((_, index) => (
-                    <span
-                      key={index}
-                      onClick={() => setSelectedIndex(index)}
-                      className={`cursor-pointer h-3 rounded-full transition-all duration-300 ${selectedIndex === index ? "w-8 bg-yellow-500" : "w-3 bg-gray-400"
-                        }`}
-                    />
-                  ))}
-                </div>
+             <div className="lg:hidden bg-[#190900] text-white flex flex-col items-center text-center py-6">
+      <div className="w-11/12 rounded-lg shadow-lg mt-4 min-h-[600px] flex flex-col">
+        <h2 className="text-3xl font-bold mb-4 h-12 flex items-center justify-center">
+          Our Product Benefits
+        </h2>
+        
+        <div className="flex-grow flex flex-col">
+          {/* Fixed-size container for content */}
+          <div className="flex-grow flex flex-col">
+            {/* Icon Container */}
+            <div className="h-16 flex items-center justify-start">
+              <span className="text-white flex items-center justify-center rounded-md w-12 h-12 bg-yellow-500 text-4xl">
+                {selectedBenefit.icon}
+              </span>
+            </div>
+            
+            {/* Text Content Container */}
+            <div className=" h-40 overflow-hidden text-start">
+              <h3 className="text-2xl font-bold mt-2 h-10 overflow-hidden">
+                {selectedBenefit.title}
+              </h3>
+              <p className="text-gray-300 mt-2 h-24 overflow-hidden">
+                {selectedBenefit.description}
+              </p>
+            </div>
+            
+            {/* Image Container */}
+            <div className="h-96 flex items-center justify-center">
+              <div className="w-[400px] h-full overflow-hidden rounded-lg">
+                <img
+                  src={selectedBenefit.img}
+                  alt={selectedBenefit.title}
+                  className="w-full h-full object-cover"
+                />
               </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Indicator Dots */}
+        <div className="flex gap-3 mt-4 h-6 justify-center items-center">
+          {benefits.map((_, index) => (
+            <span
+              key={index}
+              onClick={() => setSelectedIndex(index)}
+              className={`cursor-pointer h-3 rounded-full transition-all duration-300 ${
+                selectedIndex === index ? "w-8 bg-yellow-500" : "w-3 bg-gray-400"
+              }`}
+            />
+          ))}
+        </div>
+      </div>
+    </div>
             </div>
 
             <section className="py-20 mt-5">
@@ -453,7 +611,157 @@ const LandingPage = () => {
 
 
           </div>
+          <section 
+      ref={sectionRef}
+      className="relative bg-gradient-to-b from-white to-gray-50 py-20 px-4 sm:px-6 overflow-hidden"
+    >
+      {/* Animated background elements */}
+      <div className="absolute top-0 left-0 w-full h-full overflow-hidden opacity-10">
+        {[...Array(12)].map((_, i) => (
+          <motion.div
+            key={i}
+            className="absolute rounded-full bg-blue-300"
+            style={{
+              width: Math.random() * 300 + 100,
+              height: Math.random() * 300 + 100,
+              left: `${Math.random() * 100}%`,
+              top: `${Math.random() * 100}%`
+            }}
+            animate={{
+              x: [0, Math.random() * 100 - 50],
+              y: [0, Math.random() * 100 - 50],
+              transition: {
+                duration: Math.random() * 20 + 10,
+                repeat: Infinity,
+                repeatType: 'reverse'
+              }
+            }}
+          />
+        ))}
+      </div>
 
+      <div className="max-w-7xl mx-auto relative z-10">
+        <motion.div
+          className="text-center mb-20"
+          initial={{ opacity: 0, y: 20 }}
+          animate={isVisible ? { opacity: 1, y: 0 } : {}}
+          transition={{ duration: 0.8 }}
+        >
+          <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-3 bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-purple-600">
+            Trusted by Businesses Worldwide
+          </h2>
+          <p className=" text-gray-600 max-w-2xl mx-auto">
+            Join thousands of companies accelerating their growth with our platform
+          </p>
+        </motion.div>
+
+        <motion.div
+          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 mb-10 md:mb-20"
+          variants={containerVariants}
+          initial="hidden"
+          animate={isVisible ? "visible" : "hidden"}
+        >
+          {metrics.map((metric, index) => (
+            <motion.div
+              key={index}
+              className="bg-white p-8 rounded-xl shadow-sm border border-gray-100 relative overflow-hidden"
+              variants={itemVariants}
+              whileHover="hover"
+              onMouseEnter={() => setIsHovered(index)}
+              onMouseLeave={() => setIsHovered(null)}
+            >
+              {/* Animated background highlight on hover */}
+              <motion.div
+                className={`absolute inset-0 bg-gradient-to-br ${isHovered === index ? `from-${metric.color.replace('text-', '')}-50 to-white` : 'from-white to-white'}`}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: isHovered === index ? 1 : 0 }}
+                transition={{ duration: 0.3 }}
+              />
+              
+              <div className="relative z-10 text-center">
+                <div className={`${metric.color} mb-6 text-4xl flex justify-center`}>
+                  <metric.icon className="w-12 h-12" />
+                </div>
+                <h3 className="text-3xl font-bold text-gray-900 mb-2">
+                  {counts[index].toLocaleString()}
+                  <span className="text-xl ml-1">{metric.unit}</span>
+                </h3>
+                <p className="text-gray-600 text-lg">{metric.label}</p>
+                
+                {/* Animated arrow that appears on hover */}
+                {/* <motion.div
+                  className={`mt-4 text-${metric.color.replace('text-', '')}-500 flex items-center justify-center`}
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ 
+                    opacity: isHovered === index ? 1 : 0,
+                    x: isHovered === index ? 0 : -10
+                  }}
+                  transition={{ duration: 0.3 }}
+                >
+                  <FiArrowRight className="mr-1" />
+                  <span className="text-sm font-medium">Learn more</span>
+                </motion.div> */}
+              </div>
+            </motion.div>
+          ))}
+        </motion.div>
+
+        <motion.div
+          className="bg-white rounded-2xl shadow-lg p-8 sm:p-10 max-w-4xl mx-auto border border-gray-100"
+          initial={{ opacity: 0, y: 20 }}
+          animate={isVisible ? { opacity: 1, y: 0 } : {}}
+          transition={{ delay: 0.5, duration: 0.8 }}
+        >
+          <div className="flex flex-col md:flex-row items-center justify-between gap-8">
+            <div className="flex items-center">
+              <div className="hidden md:flex -space-x-3 relative mr-6">
+                {users.map((user, i) => (
+                  <motion.div
+                    key={user.id}
+                    className="w-12 h-12 rounded-full border-2 border-white bg-gray-200 md:flex items-center justify-center overflow-hidden relative"
+                    style={{ zIndex: users.length - i }}
+                    whileHover={{ scale: 1.2, zIndex: 10 }}
+                    transition={{ type: "spring", stiffness: 400, damping: 10 }}
+                  >
+                    <img
+                      src={`https://randomuser.me/api/portraits/${i % 2 === 0 ? 'men' : 'women'}/${i + 10}.jpg`}
+                      alt="User"
+                      className="w-full h-full object-cover"
+                    />
+                  </motion.div>
+                ))}
+               
+              </div>
+              <div>
+                <p className="text-gray-700 text-xl font-medium">
+                  <span className="text-blue-600 font-bold">2,500+</span> businesses trust us
+                </p>
+                <div className="flex items-center mt-1">
+                  {[...Array(5)].map((_, i) => (
+                    <svg key={i} className="w-5 h-5 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
+                      <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                    </svg>
+                  ))}
+                  <span className="text-gray-500 ml-2 text-sm">5.0 (167k+ reviews)</span>
+                </div>
+              </div>
+            </div>
+            <Link to={'/register'}>
+            <motion.button
+              className="px-8 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl font-medium text-lg flex items-center shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
+              whileHover={{ 
+                background: "linear-gradient(to right, #4f46e5, #7c3aed)",
+                boxShadow: "0 10px 25px -5px rgba(79, 70, 229, 0.4)"
+              }}
+            >
+              Get Started
+              <FiArrowRight className="ml-2" />
+            </motion.button>
+            </Link>
+          </div>
+        </motion.div>
+      </div>
+    </section>
 
           {/* Testimonials Section */}
           <section id="testimonials" className="py-20">
