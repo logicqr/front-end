@@ -14,7 +14,6 @@ import { Link } from "react-router-dom";
 import { Helmet } from 'react-helmet';
 import Footer from "./Footer";
 
-
 export default function Document() {
   const [activeSection, setActiveSection] = useState("Get Started");
   const [isOpen, setIsOpen] = useState(false);
