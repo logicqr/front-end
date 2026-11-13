@@ -17,8 +17,9 @@ const TempOrderList = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const response = await axiosInstance.get("/temporders");
-        setTempOrders(Array.isArray(response.data) ? response.data : []);
+        const response = await axiosInstance.get("/pending-signups");
+        // Paginated now: { items, page, total, pages }.
+        setTempOrders(response.data?.items ?? []);
       } catch (err) {
         setError(err.message);
         setTempOrders([]);
@@ -32,7 +33,7 @@ const TempOrderList = () => {
   const handleDelete = async () => {
     setDeleteLoading(true)
     try {
-      await axiosInstance.delete(`/temporders/${deleteId}`);
+      await axiosInstance.delete(`/pending-signups/${deleteId}`);
       setDeleteId(null);
       setTempOrders(tempOrders.filter(order => order.temporder_id !== deleteId));
     } catch (err) {

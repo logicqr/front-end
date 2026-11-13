@@ -12,13 +12,9 @@ const EmployeeDetailsPage = () => {
   useEffect(() => {
     const fetchReferrals = async () => {
       try {
-        const response = await axiosInstance(
-          `/staff/${employeeId}/referrals`
-        );
-        const data = response.data
-        if (data.success) {
-          setReferrals(data.data);
-        }
+        // One admin-only call returns the employee and their customers.
+        const response = await axiosInstance.get(`/admin/employees/${employeeId}`);
+        setReferrals(response.data?.customers?.items ?? []);
       } catch (error) {
         console.error("Error fetching referrals:", error);
       } finally {

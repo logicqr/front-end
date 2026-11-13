@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import axiosInstance from "../auth/axios";
+import { normalizeTransaction } from "../../lib/transactions";
 import { FaWallet, FaCheckCircle, FaTimesCircle, FaCalendarAlt, FaMoneyBillWave, FaIdCard, FaHistory } from "react-icons/fa";
 import { TbTransactionRupee } from "react-icons/tb";
 import { BsBookmarkCheck } from "react-icons/bs";
@@ -13,13 +14,14 @@ const Transactions = () => {
   useEffect(() => {
     const fetchTransactions = async () => {
       try {
-        const response = await axiosInstance.get(`/user-transactions/${userId}`);
-        const sortedTransactions = response.data.sort((a, b) => 
-          new Date(b.createdAt) - new Date(a.createdAt)
-        );
+        // Paginated and in paise; the screen was written for a plain rupee array.
+        const response = await axiosInstance.get(`/my/transactions`, { params: { limit: 50 } });
+        const sortedTransactions = (response.data?.items ?? [])
+          .map(normalizeTransaction)
+          .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
         setTransactions(sortedTransactions);
       } catch (err) {
-        setError("Failed to fetch transactions");
+        setError(err.message || "Failed to fetch transactions");
       } finally {
         setLoading(false);
       }
@@ -68,13 +70,13 @@ const Transactions = () => {
           <div className="space-y-8">
             <h1 className="lg:text-4xl text-xl text-gray-900 flex items-center space-x-3 mb-6 opacity-90">
               <span>Transaction History</span>
-              <FaHistory className="text-[#032068]" />
+              <FaHistory className="text-[#121417]" />
             </h1>
             
             {transactions.map((transaction) => (
               <div
                 key={transaction.transaction_id}
-                className="relative bg-white lg:p-6 p-3 w-full rounded-2xl shadow-xl hover:shadow-2xl transition-transform transform hover:-translate-y-1 lg:border-l-8 border-t-8 lg:border-t-0 border-[#032068] overflow-hidden"
+                className="relative bg-white lg:p-6 p-3 w-full rounded-2xl shadow-xl hover:shadow-2xl transition-transform transform hover:-translate-y-1 lg:border-l-8 border-t-8 lg:border-t-0 border-[#121417] overflow-hidden"
               >
                 <div className="absolute inset-0 bg-gradient-to-r from-transparent to-purple-100 opacity-10"></div>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 relative z-10">
@@ -119,7 +121,7 @@ const Transactions = () => {
                       <BsBookmarkCheck className="text-indigo-500 lg:text-lg" />
                       <span className="font-medium lg:text-lg">Order ID</span>
                     </p>
-                    <p className="text-gray-400 mt-1">{transaction.orderId}</p>
+                    <p className="text-gray-400 mt-1">{transaction.orderId || transaction.paymentId}</p>
                   </div>
 
                   <div>

@@ -11,8 +11,8 @@ import { BsXDiamondFill } from "react-icons/bs";
 import { FaUserPlus } from "react-icons/fa";
 import { MdOutlineDashboard } from "react-icons/md";
 import { Link } from "react-router-dom";
-import { Helmet } from 'react-helmet';
-import Footer from "./Footer";
+import { Helmet } from 'react-helmet-async';
+import { FIRST_MONTH, MONTHLY, ANNUAL } from '../../data/site';
 
 export default function Document() {
   const [activeSection, setActiveSection] = useState("Get Started");
@@ -84,7 +84,7 @@ export default function Document() {
                           setActiveSection("Get Started");
                           setIsOpen(false);
                         }}
-                        className={`flex items-center gap-2 p-3 w-full rounded-lg transition-colors ${activeSection === "Get Started" ? "bg-blue-600 text-white" : "bg-gray-100 hover:bg-gray-200"
+                        className={`flex items-center gap-2 p-3 w-full rounded-lg transition-colors ${activeSection === "Get Started" ? "bg-ink text-white" : "bg-gray-100 hover:bg-gray-200"
                           }`}
                       >
                         <FaCheckCircle /> Get Started
@@ -96,7 +96,7 @@ export default function Document() {
                           setActiveSection("registration");
                           setIsOpen(false);
                         }}
-                        className={`flex items-center gap-2 p-3 w-full rounded-lg transition-colors ${activeSection === "registration" ? "bg-blue-600 text-white" : "bg-gray-100 hover:bg-gray-200"
+                        className={`flex items-center gap-2 p-3 w-full rounded-lg transition-colors ${activeSection === "registration" ? "bg-ink text-white" : "bg-gray-100 hover:bg-gray-200"
                           }`}
                       >
                         <FaUserPlus /> Registration
@@ -108,7 +108,7 @@ export default function Document() {
                           setActiveSection("payment");
                           setIsOpen(false);
                         }}
-                        className={`flex items-center gap-2 p-3 w-full rounded-lg transition-colors ${activeSection === "payment" ? "bg-blue-600 text-white" : "bg-gray-100 hover:bg-gray-200"
+                        className={`flex items-center gap-2 p-3 w-full rounded-lg transition-colors ${activeSection === "payment" ? "bg-ink text-white" : "bg-gray-100 hover:bg-gray-200"
                           }`}
                       >
                         <FaMoneyBillWave /> Payment
@@ -120,7 +120,7 @@ export default function Document() {
                           setActiveSection("dashboard");
                           setIsOpen(false);
                         }}
-                        className={`flex items-center gap-2 p-3 w-full rounded-lg transition-colors ${activeSection === "dashboard" ? "bg-blue-600 text-white" : "bg-gray-100 hover:bg-gray-200"
+                        className={`flex items-center gap-2 p-3 w-full rounded-lg transition-colors ${activeSection === "dashboard" ? "bg-ink text-white" : "bg-gray-100 hover:bg-gray-200"
                           }`}
                       >
                         <MdOutlineDashboard /> Dashboard
@@ -132,7 +132,7 @@ export default function Document() {
                           setActiveSection("qr-usage");
                           setIsOpen(false);
                         }}
-                        className={`flex items-center gap-2 p-3 w-full rounded-lg transition-colors ${activeSection === "qr-usage" ? "bg-blue-600 text-white" : "bg-gray-100 hover:bg-gray-200"
+                        className={`flex items-center gap-2 p-3 w-full rounded-lg transition-colors ${activeSection === "qr-usage" ? "bg-ink text-white" : "bg-gray-100 hover:bg-gray-200"
                           }`}
                       >
                         <FaQrcode /> QR Code Usage
@@ -144,7 +144,7 @@ export default function Document() {
                           setActiveSection("support");
                           setIsOpen(false);
                         }}
-                        className={`flex items-center gap-2 p-3 w-full rounded-lg transition-colors ${activeSection === "support" ? "bg-blue-600 text-white" : "bg-gray-100 hover:bg-gray-200"
+                        className={`flex items-center gap-2 p-3 w-full rounded-lg transition-colors ${activeSection === "support" ? "bg-ink text-white" : "bg-gray-100 hover:bg-gray-200"
                           }`}
                       >
                         <BiSupport /> Support
@@ -336,7 +336,7 @@ export default function Document() {
                       <h3 className="md:text-2xl text-lg font-bold lg:mb-6 mb-3 text-gray-900">How to Find Your Google Place ID</h3>
                       <p className="text-gray-700 md:text-lg text-base lg:mb-6 mb-3 leading-relaxed">Follow these steps to find your Google Place ID:</p>
                       <ol className="list-decimal lg:space-y-4 space-y-2 pl-8 text-gray-700 md:text-lg text-base">
-                        <li>Go to <a href="https://developers.google.com/places/place-id" target="_blank" className="text-blue-600 underline">Google Place ID Finder</a>.</li>
+                        <li>Go to <a href="https://developers.google.com/maps/documentation/places/web-service/place-id" target="_blank" rel="noreferrer" className="text-blue-600 underline">Google Place ID Finder</a>.</li>
                         <li>Search for your business name in the search bar.</li>
                         <li>Click on your business from the suggestions.</li>
                         <li>Copy the Place ID displayed below the business name.</li>
@@ -370,12 +370,12 @@ export default function Document() {
                         <h3 className="md:text-xl text-lg font-medium text-blue-800 mb-2 lg:mb-4">Payment Details</h3>
                         <div className="bg-yellow-50 lg:p-5 p-3 rounded-lg shadow-sm mb-3 lg:mb-6">
                           <div className="flex justify-between items-center mb-3">
-                            <span className="text-gray-700 md:text-base text-sm font-medium">Registration Fee:</span>
-                            <span className="md:text-xl text-lg font-bold text-blue-600">₹749</span>
+                            <span className="text-gray-700 md:text-base text-sm font-medium">First month:</span>
+                            <span className="md:text-xl text-lg font-bold text-blue-600">{FIRST_MONTH}</span>
                           </div>
                           <div className="flex justify-between items-center mb-3">
-                            <span className="text-gray-700 md:text-base text-sm font-medium">Validity Period:</span>
-                            <span className="font-semibold text-gray-800 md:text-base text-sm">6 months</span>
+                            <span className="text-gray-700 md:text-base text-sm font-medium">Then:</span>
+                            <span className="font-semibold text-gray-800 md:text-base text-sm">{MONTHLY}/month, or {ANNUAL}/year</span>
                           </div>
                         </div>
 
@@ -641,7 +641,7 @@ export default function Document() {
                       </div>
                     </div>
 
-                    <div className="bg-blue-600 text-white lg:p-5 p-2 rounded-lg shadow-md text-center">
+                    <div className="bg-ink text-white lg:p-5 p-2 rounded-lg shadow-md text-center">
                       <h3 className="md:text-xl text-lg font-medium mb-2">Take Your Business to the Next Level!</h3>
                       <p className="lg:mb-4 mb-2">Collect genuine customer reviews and improve your business performance using our LogicQR 🎉. </p>
                       <Link to="/register">
@@ -657,7 +657,6 @@ export default function Document() {
           </div>
         </div>
       </div>
-      <Footer/>
     </div>
   );
 }

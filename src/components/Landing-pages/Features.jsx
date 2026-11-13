@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import Footer from './Footer';
 import { Link } from 'react-router-dom';
-import { Helmet } from 'react-helmet';
+import { Helmet } from 'react-helmet-async';
 
 const Features = () => {
   const [scrollY, setScrollY] = useState(0);
@@ -221,7 +220,7 @@ const Features = () => {
                     <div className="mb-6">
                       <div className="h-2 w-full bg-gray-200 rounded-full mb-2">
                         <div
-                          className="h-2 bg-blue-600 rounded-full transition-all duration-1000"
+                          className="h-2 bg-ink rounded-full transition-all duration-1000"
                           style={{ width: isVisible ? '87%' : '0%' }}
                         ></div>
                       </div>
@@ -262,7 +261,7 @@ const Features = () => {
                           <button
                             key={index}
                             onClick={() => setActiveIndex(index)}
-                            className={`w-2 h-2 rounded-full mx-1 transition-all ${activeIndex === index ? 'bg-blue-600 w-4' : 'bg-gray-300'}`}
+                            className={`w-2 h-2 rounded-full mx-1 transition-all ${activeIndex === index ? 'bg-ink w-4' : 'bg-gray-300'}`}
                             aria-label={`Testimonial ${index + 1}`}
                           />
                         ))}
@@ -491,7 +490,6 @@ const Features = () => {
 
         </div>
 
-        <Footer />
       </div>
     </div>
   )

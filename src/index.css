@@ -1,3 +1,30 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/*
+ * The product screens sit on the paper ground and use Inter, like the
+ * marketing site. Without this the dashboards fell back to the browser default
+ * font on a white page, which is most of why they read as a different product.
+ */
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    background-color: var(--paper, #f3f2ee);
+    color: var(--ink, #121417);
+    font-family: var(--sans, system-ui, sans-serif);
+    -webkit-font-smoothing: antialiased;
+  }
+  /* A visible keyboard focus everywhere, where many screens had none. */
+  :where(button, a, input, select, textarea, summary):focus-visible {
+    outline: 2px solid #087889;
+    outline-offset: 2px;
+  }
+  /* Numbers line up in tables and tiles. */
+  table,
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+}

@@ -16,15 +16,13 @@ const AdminDetailsPage = () => {
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const response = await axiosInstance(
-                    `/admin/${employeeId}`
-                );
+                const response = await axiosInstance.get(`/admin/employees/${employeeId}`);
+                const data = response.data;
 
-                const data = response.data
-
-                if (data.success) {
-                    setEmployees(data.employees);
-                    setUsers(data.users);
+                if (data?.employee) {
+                    // The admin themselves, plus the team they brought in.
+                    setEmployees([data.employee, ...(data.team ?? [])]);
+                    setUsers(data.customers?.items ?? []);
                 } else {
                     setError("Failed to fetch employee data.");
                 }

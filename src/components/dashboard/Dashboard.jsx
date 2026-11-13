@@ -20,8 +20,29 @@ import { FaRegAddressCard } from "react-icons/fa6";
 import { BsCheckLg } from "react-icons/bs";
 import { FiThumbsUp } from "react-icons/fi";
 import {MdOutlineWavingHand} from "react-icons/md"
-import { Typewriter } from "react-simple-typewriter";
 import axiosInstance from "../auth/axios";
+import { MONTHLY, ANNUAL } from "../../data/site";
+
+const RAZORPAY_SRC = "https://checkout.razorpay.com/v1/checkout.js";
+
+/** Loaded on demand, not on every page of the site. */
+function loadRazorpay() {
+  if (window.Razorpay) return Promise.resolve(true);
+  return new Promise((resolve) => {
+    const existing = document.querySelector(`script[src="${RAZORPAY_SRC}"]`);
+    if (existing) {
+      existing.addEventListener("load", () => resolve(true));
+      existing.addEventListener("error", () => resolve(false));
+      return;
+    }
+    const script = document.createElement("script");
+    script.src = RAZORPAY_SRC;
+    script.async = true;
+    script.onload = () => resolve(true);
+    script.onerror = () => resolve(false);
+    document.body.appendChild(script);
+  });
+}
 
 function Dashboard() {
   const [userData, setUserData] = useState(null);
@@ -38,7 +59,10 @@ function Dashboard() {
   const [popup, setpopup] = useState(false);
   // const [userId,setUserId] = useState('')
   const userId = sessionStorage.getItem("id");
-  const [paying,setPaying] = useState(false)
+  const [paying, setPaying] = useState(false);
+  const [reviews, setReviews] = useState([]);
+  const [reviewPages, setReviewPages] = useState(1);
+  const [reviewTotal, setReviewTotal] = useState(0);
 
   const handleDeleteClick = (id) => {
     setSelectedId(id);
@@ -53,9 +77,7 @@ function Dashboard() {
     try {
       // console.log("Deleting review with ID:", selectedId);
 
-      const response = await axiosInstance.delete(
-        `/review/${selectedId}`,
-      );
+      const response = await axiosInstance.delete(`/review-entry/${selectedId}`);
 
       // const text = await response.text();
       // console.log("Raw API Response:", text);
@@ -69,96 +91,115 @@ function Dashboard() {
         console.error("Failed to delete review");
       }
     } catch (error) {
-      console.error("Error deleting review:", error);
+      // The `finally` block used to set the success flag unconditionally, so a
+      // failed delete still reported "deleted successfully".
+      toast.error(error.message || "Could not hide that feedback.");
     } finally {
       setLoading(false);
       setSelectedId(null);
       setShowConfirm(false);
-      setShowSuccess(true);
-      // Ensure success message shows for 2 seconds before hiding
-      setTimeout(() => {
-        setShowSuccess(false);
-      }, 2000);
+      setTimeout(() => setShowSuccess(false), 2000);
     }
   };
 
+  /**
+   * The dashboard payload is `{ state, user, reviewUrl, stats, recentFeedback }`
+   * now. `stats` reports what is actually measurable: how much private feedback
+   * arrived, how many scans went to Google, and what share of scans that was.
+   *
+   * The old shape carried a "positiveReviewPercentage" that was not a
+   * percentage and did not count positive reviews at all.
+   */
   const fetchDashboardData = async () => {
     try {
-      const response = await axiosInstance.get(
-        `/users/${userId}/dashboard`
-      );
-      
-      if (response.data.message === "Subscription inactive. Please renew.") {
-        setpopup(true); // Show popup if subscription is inactive
-        setUserData(response.data);
-        
-      } else if (response.data.userDetails) {
-        setUserData(response.data.userDetails || {});
+      const data = await axiosInstance
+        .get("/my/dashboard")
+        .then((r) => r.data);
 
-        localStorage.setItem("userName", response.data.userDetails.user.name || '');
-        localStorage.setItem("userEmail", response.data.userDetails.user.email || '');
-        localStorage.setItem("userNumber", response.data.userDetails.user.phoneNumber || '')
-
-        sessionStorage.setItem("name", response.data.userDetails.user.name || '');
-
-        if (response.data.reviewForm_url) {
-          setQr(`https://logicqr.com/${response.data.reviewForm_url}`); // Dynamically set the QR code URL
-        }
-
-        // console.log(response.data.userDetails);
-      } else {
-        // No data returned, check if the subscription is inactive
+      if (data.state === "INACTIVE") {
         setpopup(true);
+        setUserData(data);
+        return;
+      }
+
+      setUserData(data);
+
+      // Reviews are paginated separately rather than every one arriving with
+      // the dashboard.
+      const list = await axiosInstance
+        .get("/my/reviews", { params: { limit: reviewsPerPage, page: currentPage } })
+        .then((r) => r.data);
+      setReviews(list?.items ?? []);
+      setReviewPages(list?.pages ?? 1);
+      setReviewTotal(list?.total ?? 0);
+
+      if (data.reviewUrl) {
+        setQr(`https://www.logicqr.com${data.reviewUrl}`);
       }
     } catch (err) {
-      setError("Error fetching dashboard data");
-      console.error(err);
+      setError(err.message || "Could not load your dashboard.");
     }
   };
 
   useEffect(() => {
+    fetchDashboardData();
+    // Refetch when the page changes, since the list is server-paginated now.
+  }, [userId, currentPage]);
 
-      fetchDashboardData();
-   
-  }, [userId]);
-
-  const renewSubscription = async () => {
-
-    setPaying(true)
+  /**
+   * Brings a lapsed account back.
+   *
+   * Sets up a new recurring mandate rather than taking a single payment that
+   * would lapse again in a month — and the account comes from the session, not
+   * from a `user_id` in the request body as it did before.
+   */
+  const restartSubscription = async () => {
+    setPaying(true);
 
     try {
-        const response = await axiosInstance.post("/renew-subscription", {
-            user_id: userId, // Replace with actual user ID
-        });
+      const ready = await loadRazorpay();
+      if (!ready) throw new Error("Could not open the payment window. Check your connection.");
 
-        if (response.status === 200) {
-          // console.log(response.data.order.id);
-          // console.log(response.data.order.amount);
+      const start = await axiosInstance
+        .post("/my/subscription/restart", { cycle: "monthly" })
+        .then((r) => r.data);
 
-            const options = {
-                key: "rzp_live_R4krQLCHamePO8", // Use env variable
-                amount: response.data.order.amount,
-                currency: "INR",
-                order_id: response.data.order.id,
-                handler: function (response) {
-                    // console.log("Payment Successful:", response);
-                    window.location.reload();
-                   
-                },
-                theme: { color: "#3399cc" },
-            };
+      const rzp = new window.Razorpay({
+        key: start.keyId,
+        subscription_id: start.subscriptionId,
+        name: "LogicQR",
+        description: "Restart your review page",
+        prefill: start.prefill,
+        theme: { color: "#13B8CF" },
+        handler: async (response) => {
+          try {
+            await axiosInstance.post("/my/subscription/restart/confirm", {
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_subscription_id: response.razorpay_subscription_id,
+              razorpay_signature: response.razorpay_signature,
+            });
+            setpopup(false);
+            await fetchDashboardData();
+            toast.success("Your review page is live again.");
+          } catch (err) {
+            // Never claim success on the gateway callback alone.
+            toast.error(
+              err.message ||
+                "Payment went through but we could not finish. Email thelogicqr@gmail.com and we will sort it out."
+            );
+          } finally {
+            setPaying(false);
+          }
+        },
+        modal: { ondismiss: () => setPaying(false) },
+      });
 
-            const rzp1 = new window.Razorpay(options);
-            rzp1.open();
-        }
+      rzp.open();
     } catch (error) {
-        console.error("Error:", error);
-       
-    } finally {
-        setLoading(false);
-        setPaying(false)
+      toast.error(error.message || "Could not start the payment.");
+      setPaying(false);
     }
-};
+  };
 
   const handleCopy = () => {
     // console.log("QR value:", qr, typeof qr); // Log to check if it's a string or object
@@ -303,31 +344,27 @@ function Dashboard() {
     toast.success("QR Code downloaded successfully!");
   };
 
-  const filteredReviews =
-    userData?.review?.filter(
-      (review) =>
-        review?.name
-          ?.toLowerCase()
-          .includes(searchQuery.trim().toLowerCase()) ||
-        review?.comment
-          ?.toLowerCase()
-          .includes(searchQuery.trim().toLowerCase())
-    ) || [];
+  /**
+   * The current page of feedback, filtered client-side within that page.
+   * The whole set used to be downloaded and paginated in the browser, which
+   * does not scale past a few hundred reviews.
+   */
+  const filteredReviews = (reviews || []).filter((review) => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return true;
+    return (
+      review?.name?.toLowerCase().includes(q) || review?.comment?.toLowerCase().includes(q)
+    );
+  });
 
   // Reset to the first page when searchQuery changes
   useEffect(() => {
     setCurrentPage(1);
   }, [searchQuery]);
 
-  // Pagination logic
-  const indexOfLastReview = currentPage * reviewsPerPage;
-  const indexOfFirstReview = indexOfLastReview - reviewsPerPage;
-  const currentReviews = filteredReviews.slice(
-    indexOfFirstReview,
-    indexOfLastReview
-  );
-  const totalPages = Math.ceil(filteredReviews.length / reviewsPerPage);
-  // console.log(currentReviews.length)
+  // The server already returned one page, so this is that page.
+  const currentReviews = filteredReviews;
+  const totalPages = reviewPages;
 
   if (error) {
     return <div className="p-6 bg-gray-50 min-h-screen flex items-center justify-center">
@@ -339,7 +376,7 @@ function Dashboard() {
       <p className="text-gray-600 mb-4">{error}</p>
       <button
         onClick={() => window.location.reload()}
-        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+        className="px-4 py-2 bg-ink text-white rounded-lg hover:bg-ink/90 transition-colors font-medium"
       >
         Try Again
       </button>
@@ -425,10 +462,10 @@ function Dashboard() {
               </p>
 
               <div className="bg-gray-50 border rounded-lg px-4 py-2 mt-2">
-                <p className="text-2xl font-bold text-[#032068] ">
-                  <span className="md:text-sm text-xs">₹749 </span>
+                <p className="text-2xl font-bold text-[#121417] ">
+                  <span className="md:text-sm text-xs">{MONTHLY} </span>
                   <span className="md:text-sm text-xs font-normal text-gray-500">
-                     / Half-Year Plan
+                     / month, or {ANNUAL} / year
                   </span>
                 </p>
                 <div className="mt-2 text-left border rounded-lg px-3 py-1">
@@ -460,8 +497,8 @@ function Dashboard() {
 
               <div className="flex justify-between mt-3">
                 {/* <button onClick={() => setIsOpen(false)} className="w-1/2 bg-gray-300 text-gray-700 font-semibold md:text-sm text-xs py-2 rounded-md mr-2">Go Back</button> */}
-                <button className=" w-full bg-[#032068] text-white font-semibold py-2 md:text-sm text-xs rounded-md" onClick={renewSubscription}>
-                {paying?'Loading...':'Pay Now'}
+                <button className=" w-full bg-[#121417] text-white font-semibold py-2 md:text-sm text-xs rounded-md" onClick={restartSubscription}>
+                {paying ? 'Opening payment…' : 'Restart my page'}
                 </button>
               </div>
             </div>
@@ -479,7 +516,7 @@ function Dashboard() {
               }}
             >
               {/* Purple Overlay */}
-              <div className="absolute  inset-0 bg-gradient-to-r from-[#313860] to-[#151928] opacity-60"></div>
+              <div className="absolute  inset-0 bg-gradient-to-r from-[#2A2D33] to-[#121417] opacity-60"></div>
 
               {/* Content Section */}
               <div className="relative text-white  w-full h-full flex flex-col justify-between">
@@ -492,15 +529,11 @@ function Dashboard() {
                   <span className="text-lg md:text-2xl"><MdOutlineWavingHand /></span>
                   </div>
                   <p className="text-sm md:text-base lg:w-[80%] opacity-90">
-                    <Typewriter
-                      words={[
-                        "Your Business Insights Dashboard is ready—track customer feedback, analyze trends, and improve your services with real-time insights. Stay ahead and make data-driven decisions for business growth!",
-                      ]}
-                      typeSpeed={40}
-                      deleteSpeed={0}
-                      cursor
-                  
-                    />
+                    {/* A typing animation on a sentence the owner reads every
+                        visit is a delay, not a flourish — and it pulled in a
+                        whole dependency. Plain text. */}
+                    Your dashboard is ready. Every piece of private feedback lands here, and the QR code below is
+                    what collects it.
                   </p>
                 </div>
                 <div>
@@ -540,10 +573,10 @@ function Dashboard() {
                     <div className=" flex flex-col items-center lg:items-start justify-start ">
                       <div className="flex gap-1 flex-col lg:flex-row lg:items-center ">
                         <h2 className="md:text-lg text-sm  font-semibold">
-                          Buisness Name:
+                          Business Name:
                         </h2>
                         <h2 className="md:text-lg text-sm text-center  ">
-                          {userData?.user?.name || "N/A"}{" "}
+                          {userData?.user?.businessName || "N/A"}{" "}
                         </h2>
                       </div>
                       <p className="text-gray-700 hidden md:block ">
@@ -553,7 +586,7 @@ function Dashboard() {
                       <div className="mt-4 lg:hidden flex items-center justify-end gap-3 w-full lg:w-auto">
                         <button
                           onClick={handleDownloadQR}
-                          className="border w-full lg:w-auto border-gray-300 bg-[#032068] text-white flex items-center justify-center gap-2 px-5 py-2 rounded-lg text-sm hover:bg-gray-200 transition"
+                          className="border w-full lg:w-auto border-gray-300 bg-[#121417] text-white flex items-center justify-center gap-2 px-5 py-2 rounded-lg text-sm hover:bg-gray-200 transition"
                         >
                           Download
                           <MdOutlineFileDownload />
@@ -563,7 +596,7 @@ function Dashboard() {
                     <div className="mt-4  hidden lg:flex items-center justify-end gap-3 w-full lg:w-auto">
                       <button
                         onClick={handleDownloadQR}
-                        className="border w-full lg:w-auto border-gray-300 bg-[#032068] text-white flex items-center justify-center gap-2 px-5 py-2 rounded-lg text-sm "
+                        className="border w-full lg:w-auto border-gray-300 bg-[#121417] text-white flex items-center justify-center gap-2 px-5 py-2 rounded-lg text-sm "
                       >
                         Download
                         <MdOutlineFileDownload />
@@ -572,7 +605,7 @@ function Dashboard() {
                     {/* Form Link Section */}
                   </div>
                 </div>
-                <div className=" flex flex-col  gap-3 items-start  w-full border   text-white bg-gradient-to-r from-[#313860] to-[#151928] border-gray-200 px-2 py-2 rounded-md ">
+                <div className=" flex flex-col  gap-3 items-start  w-full border   text-white bg-gradient-to-r from-[#2A2D33] to-[#121417] border-gray-200 px-2 py-2 rounded-md ">
                   <div className="w-full">
                     <div className="  flex items-center  gap-2  text-white w-full">
                       <h1 className="flex  items-center gap-1">
@@ -583,7 +616,7 @@ function Dashboard() {
                       </h1>
                       <h1 className="   lg:mt-0   rounded-lg  ">
                         <span className=" font-semibold text-center">
-                          {userData?.user?.name || "n/a"}
+                          {userData?.user?.businessName || "n/a"}
                         </span>
                       </h1>
                     </div>
@@ -616,11 +649,11 @@ function Dashboard() {
         <div className=" grid lg:grid-cols-2 lg:w-[90%] mx-auto lg:mt-8  grid-cols-1 ">
           <div className="lg:grid col-span-1  hidden">
             {" "}
-            <ReviewCharts />
+            <ReviewCharts stats={userData?.stats} />
           </div>
           <div className="grid col-span-1 ">
             {" "}
-            <CustomPieChart />
+            <CustomPieChart stats={userData?.stats} />
           </div>
         </div>
 
@@ -632,7 +665,7 @@ function Dashboard() {
             <div>
               <h2 className="text-lg font-semibold">
                 Recent Reviews{" "}
-                <span className="text-blue-500 border border-[#0070FF] bg-sky-50 rounded-full px-2 text-xs">
+                <span className="text-blue-500 border border-[#087889] bg-sky-50 rounded-full px-2 text-xs">
                   {currentReviews.length}
                 </span>
               </h2>
@@ -647,7 +680,7 @@ function Dashboard() {
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
               <button
-                className="bg-gradient-to-r from-[#313860] to-[#151928] text-white lg:px-4 px-3 h-10 lg:py-1 flex items-center gap-2 rounded-md text-sm lg:text-base"
+                className="bg-gradient-to-r from-[#2A2D33] to-[#121417] text-white lg:px-4 px-3 h-10 lg:py-1 flex items-center gap-2 rounded-md text-sm lg:text-base"
                 onClick={exportPDF}
               >
                 <span className="md:block hidden">Export</span>{" "}
@@ -739,7 +772,7 @@ function Dashboard() {
               currentReviews.map((rev, index) => (
                 <div
                   key={index}
-                  className="p-3 relative border-t-4 border-[#032068] rounded-lg bg-white border  "
+                  className="p-3 relative border-t-4 border-[#121417] rounded-lg bg-white border  "
                 >
                   <div className="text-end">
                     <p className="text-xs">
@@ -747,7 +780,7 @@ function Dashboard() {
                     </p>
                   </div>
                   <div className="mb-4 flex items-center space-x-3">
-                    <FaRegUserCircle className="text-[#032068] text-3xl" />
+                    <FaRegUserCircle className="text-[#121417] text-3xl" />
                     <div>
                       <p className="text-gray-500 text-sm">Reviewer</p>
                       <h3 className="text-gray-800 text-sm ">
@@ -757,7 +790,7 @@ function Dashboard() {
                   </div>
 
                   <div className="mb-4 flex items-center space-x-3">
-                    <CgComment className="text-[#032068] text-3xl" />
+                    <CgComment className="text-[#121417] text-3xl" />
                     <div>
                       <p className="text-gray-500 text-sm">Comment</p>
                       <p className="text-gray-600 text-sm leading-relaxed">
@@ -766,7 +799,7 @@ function Dashboard() {
                     </div>
                   </div>
                   <div className="mb-4 flex items-center space-x-3">
-                    <TbHomeStats className="text-[#032068] text-3xl" />
+                    <TbHomeStats className="text-[#121417] text-3xl" />
                     <div className="space-y-2">
                       <p className="text-gray-500 text-sm">Ratings</p>
                       <div className="flex items-center space-x-1">
@@ -787,7 +820,7 @@ function Dashboard() {
                     </div>
                   </div>
                   <div
-                    className="flex w-full border items-center py-2 rounded-md bg-gradient-to-r from-[#313860] to-[#3c4977] justify-center text-gray-500 text-sm"
+                    className="flex w-full border items-center py-2 rounded-md bg-gradient-to-r from-[#2A2D33] to-[#3c4977] justify-center text-gray-500 text-sm"
                     onClick={() => handleDeleteClick(rev.review_id)}
                   >
                     <p className="text-white text-lg">Delete</p>
@@ -812,14 +845,14 @@ function Dashboard() {
             </button>
             <p className="text-lg flex gap-4">
               <span
-                className={`border border-[#032068] px-3 py-1 text-center transition ${currentPage > 1 ? "bg-[#032068] text-white" : "bg-transparent"
+                className={`border border-[#121417] px-3 py-1 text-center transition ${currentPage > 1 ? "bg-[#121417] text-white" : "bg-transparent"
                   }`}
               >
                 {currentPage}
               </span>
               <span
-                className={`border border-[#032068] px-3 py-1 text-center transition ${currentPage >= totalPages
-                    ? "bg-[#032068] text-white"
+                className={`border border-[#121417] px-3 py-1 text-center transition ${currentPage >= totalPages
+                    ? "bg-[#121417] text-white"
                     : "bg-transparent"
                   }`}
               >
@@ -884,7 +917,7 @@ function Dashboard() {
               trigger="in"
               delay=""
               state="in-reveal"
-              colors="primary:#30e849"
+              colors="primary:#1F8A4C"
               style={{ width: "100%", height: "100%" }}
               >
               </lord-icon>

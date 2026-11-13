@@ -13,6 +13,7 @@ import {
 } from "react-icons/fi";
 import { motion, AnimatePresence } from "framer-motion";
 import axiosInstance from "../../auth/axios";
+import Avatar from "../../common/Avatar";
 
 
 const AccountSettings = () => {
@@ -38,7 +39,7 @@ const AccountSettings = () => {
                 const response = await axiosInstance.get(
                     `/employees/${id}`
                 );
-                setEmployeeData(response.data.data);
+                setEmployeeData(response.data?.employee ?? null);
             } catch (err) {
                 setError(err.message);
             } finally {
@@ -104,9 +105,11 @@ const AccountSettings = () => {
 
         try {
             const response = await axiosInstance.post(
-                "/change-password",
+                // Identity comes from the token. The old route took the email from
+                // the body, so any signed-in caller who knew a colleague's email
+                // and current password could change it.
+                "/employees/password",
                 {
-                    employeeEmail: employeeData.employeeEmail,
                     oldPassword: formData.existingPassword,
                     newPassword: formData.newPassword,
                 }
@@ -129,9 +132,7 @@ const AccountSettings = () => {
         } catch (err) {
             setSuccessMessage(false); // 🚨 Add this line
             console.error("Password change error:", err);
-            setPasswordError(
-                err.response?.data?.message || "Failed to change password"
-            );
+            setPasswordError(err.message || "Failed to change password");
         }
 
         // Keep the error message visible for a while
@@ -187,11 +188,7 @@ const AccountSettings = () => {
                                 animate={{ scale: 1, opacity: 1 }}
                                 className="relative group"
                             >
-                                <img
-                                    src="https://ik.imagekit.io/pds5n5l6d3/LogicQR/Dashboard%20section/7ec47348-583e-4a7a-9655-493c6c3b7b95-removebg-preview.png?updatedAt=1741522515589"
-                                    alt="Profile"
-                                    className="w-24 h-24 sm:w-32 sm:h-32 rounded-full border-4 border-white shadow-xl transition-transform group-hover:scale-105"
-                                />
+                                <Avatar name={employeeData?.employeeName} className="h-24 w-24 sm:h-32 sm:w-32 text-3xl sm:text-4xl border-4 border-white shadow-xl" />
                             </motion.div>
 
                             <div className="text-center sm:text-left text-white space-y-2 flex-1">
@@ -337,7 +334,7 @@ const AccountSettings = () => {
                                 }}
                                 className={`px-4 py-2 sm:px-5 sm:py-2.5 text-white rounded-lg font-medium transition-colors text-sm sm:text-base w-full sm:w-auto text-center ${showPasswordForm
                                         ? "bg-red-600 hover:bg-red-700"
-                                        : "bg-blue-600 hover:bg-blue-700"
+                                        : "bg-ink hover:bg-ink/90"
                                     }`}
                             >
                                 {showPasswordForm ? "Close" : "Change Password"}
@@ -508,7 +505,7 @@ const AccountSettings = () => {
                                             </button>
                                             <button
                                                 type="submit"
-                                                className="px-4 py-2 sm:px-5 sm:py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2 text-sm sm:text-base w-full sm:w-auto"
+                                                className="px-4 py-2 sm:px-5 sm:py-2.5 bg-ink hover:bg-ink/90 text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2 text-sm sm:text-base w-full sm:w-auto"
                                             >
                                                 <FiCheckCircle className="w-4 h-4 sm:w-5 sm:h-5" />
                                                 Update Password

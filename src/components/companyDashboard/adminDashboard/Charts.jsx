@@ -46,8 +46,8 @@ function Charts() {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const response = await axiosInstance.get(`/admin/${AdminId}`);
-        const users = response.data.users || [];
+        const response = await axiosInstance.get(`/admin/employees/${AdminId}`);
+        const users = response.data?.customers?.items ?? [];
         const active = users.filter(user => user.isActive);
         
         setActiveUsers(active);
@@ -125,11 +125,11 @@ function Charts() {
           <AreaChart data={data}>
             <defs>
               <linearGradient id="colorUv" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.2} />
-                <stop offset="95%" stopColor="#3B82F6" stopOpacity={0} />
+                <stop offset="5%" stopColor="#13B8CF" stopOpacity={0.2} />
+                <stop offset="95%" stopColor="#13B8CF" stopOpacity={0} />
               </linearGradient>
             </defs>
-            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
+            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E7E4DD" />
             <XAxis
               dataKey="month"
               tickFormatter={(month) =>
@@ -147,16 +147,16 @@ function Charts() {
             />
             <Tooltip 
               content={<CustomTooltip />}
-              cursor={{ stroke: '#E5E7EB', strokeWidth: 1 }}
+              cursor={{ stroke: '#E7E4DD', strokeWidth: 1 }}
             />
             <Area
               type="monotone"
               dataKey="value"
-              stroke="#3B82F6"
+              stroke="#13B8CF"
               strokeWidth={3}
               fill="url(#colorUv)"
-              dot={<Dot r={5} fill="#3B82F6" strokeWidth={2} stroke="#fff" />}
-              activeDot={{ r: 8, fill: "#fff", stroke: "#3B82F6", strokeWidth: 2 }}
+              dot={<Dot r={5} fill="#13B8CF" strokeWidth={2} stroke="#fff" />}
+              activeDot={{ r: 8, fill: "#fff", stroke: "#13B8CF", strokeWidth: 2 }}
             />
           </AreaChart>
         </ResponsiveContainer>

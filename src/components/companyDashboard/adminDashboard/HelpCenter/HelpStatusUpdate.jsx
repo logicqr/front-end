@@ -28,16 +28,16 @@ const HelpStatusUpdate = () => {
     const getTicket = async () => {
         
         try {
-            const response = await axiosInstance.get(`/users-help-center/${id}`);
+            const response = await axiosInstance.get(`/admin/tickets/${id}`);
             // console.log("dei amnga", response.data.particularTicket)
-            const ticketData = response.data.particularTicket;
+            const ticketData = response.data?.ticket ?? null;
             
             setTicket(ticketData);
             // console.log(response)
             setStatus(ticketData.status);
             setSelectedStatus(ticketData.status);
         } catch (err) {
-            setError(err.response?.data?.message);
+            setError(err.message || "Could not load that ticket.");
         }
         finally {
             // setLoading(false);
@@ -56,7 +56,7 @@ const HelpStatusUpdate = () => {
         }));
         setStatus(selectedStatus);
         try {
-            await axiosInstance.put(`/users-help-center/${id}/status`, { status: selectedStatus });
+            await axiosInstance.put(`/admin/tickets/${id}/status`, { status: selectedStatus });
           
         } catch (error) {
             console.error("Error updating status", error);
@@ -80,7 +80,7 @@ const HelpStatusUpdate = () => {
                             <h2 className="md:text-2xl text-base font-bold text-gray-900">Ticket #{ticket.helpdesk_id}</h2>
                             <div className="flex items-center space-x-3 mt-4 sm:mt-0 w-full md:w-fit">
                                 <select
-                                    className="border px-3 py-2 w-full rounded-md text-gray-700 focus:ring-2 focus:ring-blue-500"
+                                    className="border px-3 py-2 w-full rounded-md text-gray-700 focus:ring-2 focus:ring-brand-600"
                                     value={selectedStatus}
                                     onChange={handleStatusChange}
                                     disabled={status === "RESOLVED"}
@@ -141,7 +141,7 @@ const HelpStatusUpdate = () => {
                                 Go Back
                             </button>
                             <button
-                                className="bg-gradient-to-r from-[#313860] to-[#151928] text-white px-4 py-2 rounded-md hover:bg-blue-700 transition disabled:opacity-50"
+                                className="bg-gradient-to-r from-[#2A2D33] to-[#121417] text-white px-4 py-2 rounded-md hover:bg-ink/90 transition disabled:opacity-50"
                                 onClick={updateStatus}
                                 disabled={selectedStatus === status || status === "RESOLVED"}
                             >

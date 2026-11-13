@@ -1,59 +1,14 @@
-import axios from 'axios';
+/**
+ * Compatibility shim.
+ *
+ * The client itself now lives in `src/lib/api.js`, which handles the base URL,
+ * token refresh on 401, response unwrapping and a single error shape. The
+ * dashboard components import this path, so it re-exports that instance rather
+ * than making every file change at once.
+ *
+ * New code should import from `../../lib/api` directly.
+ */
+import api, { http, tokens, API_URL, ApiError } from '../../lib/api';
 
-const axiosInstance = axios.create({
-  baseURL: 'https://back-end-ivnr.onrender.com/v1',
-});
-
-axiosInstance.interceptors.response.use(
-  (response) => {
-    return response;
-  },
-  async (error) => {
-    const originalRequest = error.config;
-    if (error.response && error.response.status === 403 && !originalRequest._retry) {
-      originalRequest._retry = true;
-      const refreshToken = sessionStorage.getItem('refreshToken');
-      // console.log("hooo:",refreshToken)
-      // const response = await axios.post('http://localhost:9004/v1/auth/refresh', {
-      //              refreshToken,
-      //             });
-      //   console.log(response.data)
-      
-      if (refreshToken) {
-        try {
-          const response = await axios.post('https://back-end-ivnr.onrender.com/v1/auth/refresh', {
-            refreshToken,
-          });
-// console.log(response)
-          const accessToken  = response.data.accessToken;
-
-          if (!accessToken) {
-            // If accessToken is undefined or invalid
-            sessionStorage.removeItem('accessToken');
-            sessionStorage.removeItem('refreshToken');
-            window.location.href = '/login'; // Redirect to login page
-            return Promise.reject(new Error('Access token is undefined.'));
-          }
-
-          // Update tokens and retry original request
-          sessionStorage.setItem('accessToken', accessToken);
-          axiosInstance.defaults.headers.common['Authorization'] = `Bearer ${accessToken}`;
-          originalRequest.headers['Authorization'] = `Bearer ${accessToken}`;
-          return axiosInstance(originalRequest);
-        } catch (err) {
-          // Handle refresh token failure  (refresh api fail)
-          sessionStorage.removeItem('accessToken');
-          sessionStorage.removeItem('refreshToken');
-          window.location.href = '/login'; // Redirect to login page
-          return Promise.reject(err);
-        }
-      } else {
-        // No refresh token available
-        window.location.href = '/login'; // Redirect to login page
-      }
-    }
-    return Promise.reject(error);
-  }
-);
-
-export default axiosInstance;
+export { http, tokens, API_URL, ApiError };
+export default api;
