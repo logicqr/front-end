@@ -50,22 +50,22 @@ const CustomBarChart = () => {
     useEffect(() => {
         const fetchReferrals = async () => {
             try {
-                const response = await axiosInstance.get(
-                    `/staff/${id}/referrals`
-                );
+                const response = await axiosInstance.get(`/employees/${id}/referrals`, {
+                    params: { limit: 100 },
+                });
 
-                if (response.data.success === false && response.data.message === "No users found for this referral code.") {
-                    setApiError(response.data.message);
-                    setChartData([]); // Clear existing chart data
-                    setAvailableYears([]); // Clear existing years
-                    setReferralsData([]); // Clear existing referrals
-                    return; // Exit the function, preventing further processing
+                // An empty list is a normal 200 with no items now, not a 404.
+                const items = response.data?.items ?? [];
+                if (items.length === 0) {
+                    setApiError("No users found for this referral code.");
+                    setChartData([]);
+                    setAvailableYears([]);
+                    setReferralsData([]);
+                    return;
                 }
 
                 // Filter active referrals immediately after fetch
-                const activeReferrals = response.data.data.filter(
-                    (r) => r.isActive === true
-                );
+                const activeReferrals = items.filter((r) => r.isActive === true);
                 setReferralsData(activeReferrals);
 
                 // Calculate years based on active referrals only
@@ -118,7 +118,7 @@ const CustomBarChart = () => {
     };
 
     return (
-        <div className="bg-gradient-to-r from-[#313860] to-[#151928] p-3 md:p-4 rounded-xl shadow-lg ">
+        <div className="bg-gradient-to-r from-[#2A2D33] to-[#121417] p-3 md:p-4 rounded-xl shadow-lg ">
             <div className="flex justify-between items-center mb-3 md:mb-4">
                 <h2 className="text-white text-lg md:text-xl font-semibold">
                     Referral Performance

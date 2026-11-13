@@ -70,7 +70,7 @@ const Pagination = ({ currentPage, totalPages, onPageChange, className }) => {
                 <button
                     key={page}
                     onClick={() => onPageChange(page)}
-                    className={`px-3 py-1 rounded ${currentPage === page ? "bg-blue-600 text-white" : "hover:bg-gray-50"
+                    className={`px-3 py-1 rounded ${currentPage === page ? "bg-ink text-white" : "hover:bg-gray-50"
                         }`}
                 >
                     {page}
@@ -163,9 +163,8 @@ const EmployeesDetails = () => {
     
         const fetchStaffData = async () => {
             try {
-                const response = await axiosInstance.get("/staff");
-                const staffData = response.data;
-                setStaff(staffData.data.map((emp) => ({
+                const response = await axiosInstance.get("/admin/employees", { params: { role: "STAFF", limit: 100 } });
+                setStaff((response.data?.items ?? []).map((emp) => ({
                     id: emp.employee_id,
                     name: emp.employeeName,
                     role: emp.role.charAt(0) + emp.role.slice(1).toLowerCase(),
@@ -181,9 +180,8 @@ const EmployeesDetails = () => {
     
         const fetchAdminData = async () => {
             try {
-                const response = await axiosInstance.get("/admin");
-                const adminData = response.data;
-                setAdmin(adminData.data.map((emp) => ({
+                const response = await axiosInstance.get("/admin/employees", { params: { role: "ADMIN", limit: 100 } });
+                setAdmin((response.data?.items ?? []).map((emp) => ({
                     id: emp.employee_id,
                     name: emp.employeeName,
                     role: emp.role.charAt(0) + emp.role.slice(1).toLowerCase(),
@@ -199,10 +197,9 @@ const EmployeesDetails = () => {
     
         const fetchUserCounts = async () => {
             try {
-                const response = await axiosInstance.get("/user-counts");
-                const userCountData = response.data;
-                setUser(userCountData.totalUsers);
-                setActiveUser(userCountData.activeUsers);
+                const response = await axiosInstance.get("/admin/customer-counts");
+                setUser(response.data?.total ?? 0);
+                setActiveUser(response.data?.active ?? 0);
             } catch (error) {
                 console.error("Error fetching user count data:", error);
             }
@@ -331,9 +328,8 @@ const EmployeesDetails = () => {
                             textColor: "text-green-700",
                         },
                     ].map((metric, i) => (
-                        <div className="">
+                        <div className="" key={metric.title ?? i}>
                             <div
-                            key={i}
                             className={`group relative  p-3 bg-white rounded-lg shadow-sm hover:shadow-lg transition-all duration-300 ease-out border-l-4 ${metric.borderColor} hover:-translate-y-1`}
                             aria-label={metric.title}
                         >
@@ -394,7 +390,7 @@ const EmployeesDetails = () => {
                         <div className="flex items-center gap-3 w-full md:w-fit">
                             <button
                                 onClick={() => navigate("/employees-details/staff-registration")}
-                                className="flex items-center justify-center md:justify-start gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors w-full md:w-fit"
+                                className="flex items-center justify-center md:justify-start gap-2 bg-ink hover:bg-ink/90 text-white px-4 py-2 rounded-lg transition-colors w-full md:w-fit"
                             >
                                 <div className="flex items-center gap-2"><HiOutlineUserAdd className="text-lg" /> Add Employee</div>
                             </button>
@@ -423,7 +419,7 @@ const EmployeesDetails = () => {
                                 <input
                                     type="text"
                                     placeholder="Search employees..."
-                                    className="w-full pl-10 pr-4 py-2 border rounded-lg focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
+                                    className="w-full pl-10 pr-4 py-2 border rounded-lg focus:border-ink focus:ring-1 focus:ring-brand-600 outline-none"
                                     value={searchQuery}
                                     onChange={(e) => setSearchQuery(e.target.value)}
                                 />
@@ -509,7 +505,7 @@ const EmployeesDetails = () => {
                                         <button
                                             onClick={() =>
                                                 navigate(
-                                                    `/${activeTab === "staffs" ? `employees-details/${emp.id} ` : `employees-details/admin/${emp.id} `}`
+                                                    `/${activeTab === "staffs" ? `employees-details/${emp.id}` : `employees-details/admin/${emp.id}`}`
                                                 )
                                             }
                                         >
@@ -560,7 +556,7 @@ const EmployeesDetails = () => {
                                 <button
                                     onClick={() =>
                                         navigate(
-                                            `/${activeTab === "staffs" ? `employees-details/${emp.id} ` : `employees-details/admin/${emp.id} `}`
+                                            `/${activeTab === "staffs" ? `employees-details/${emp.id}` : `employees-details/admin/${emp.id}`}`
                                         )
                                     }
                                     className="text-blue-600"
@@ -655,7 +651,7 @@ const EmployeesDetails = () => {
                                 </button>
                                 <button
                                     type="submit"
-                                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                                    className="px-4 py-2 bg-ink text-white rounded-md hover:bg-ink/90"
                                 >
                                     {selectedEmployee ? "Save Changes" : "Add Employee"}
                                 </button>

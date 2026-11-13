@@ -10,6 +10,7 @@ import { FaUserAlt, FaEnvelope, FaPhoneAlt } from "react-icons/fa";
 import { FaUser, FaStore, FaCheckCircle, FaTimesCircle } from "react-icons/fa";
 import { MdEmail, MdClose } from "react-icons/md";
 import axiosInstance from "../../auth/axios";
+import Avatar from "../../common/Avatar";
 
 
 const Dashboard = () => {
@@ -83,19 +84,20 @@ const Dashboard = () => {
     };
     useEffect(() => {
         setIsLoadingReferrals(true);
-        axiosInstance.get(`/staff/${id}/referrals`)
+        axiosInstance.get(`/employees/${id}/referrals`)
         
             .then((response) => {
                 // console.log(response)
                 // Handle API structure properly
-                if (response.data && Array.isArray(response.data.data)) {
-                    setReferrals(response.data.data);
+                // Paginated now: { items, total, ... }.
+                if (response.data && Array.isArray(response.data.items)) {
+                    setReferrals(response.data.items);
                 } else {
-                    setApiError(response.data?.message || "Failed to load referrals");
+                    setApiError("Failed to load referrals");
                 }
             })
             .catch((error) => {
-                setApiError("Failed to connect to the server. Please try again later.");
+                setApiError(error.message || "Failed to connect to the server. Please try again later.");
             })
             .finally(() => {
                 setIsLoadingReferrals(false);
@@ -109,7 +111,7 @@ const Dashboard = () => {
                 // Handle API structure properly
                 if (response.data) {
                     // Adjust based on actual API response structure
-                    setEmployeeData(response.data.data || response.data);
+                    setEmployeeData(response.data?.employee ?? null);
                 } else {
                     setApiError("Failed to load employee data");
                 }
@@ -184,7 +186,7 @@ const Dashboard = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-6">
                 {/* Welcome Card */}
                 <div className="bg-white rounded-lg md:p-4 shadow-lg">
-                    <div className="bg-gradient-to-r from-[#313860] to-[#151928] relative h-full text-white rounded-lg p-4 md:p-6 overflow-hidden min-h-[180px]">
+                    <div className="bg-gradient-to-r from-[#2A2D33] to-[#121417] relative h-full text-white rounded-lg p-4 md:p-6 overflow-hidden min-h-[180px]">
                         <img
                             src={'https://ik.imagekit.io/pds5n5l6d3/LogicQR/Dashboard%20section/Group%201171275614.png?updatedAt=1741522515139'}
                             alt="Group"
@@ -202,12 +204,8 @@ const Dashboard = () => {
                 {/* Profile Card */}
                 <div className="bg-white rounded-lg p-3 md:p-4 shadow-lg">
                     <div className="flex flex-col md:flex-row h-full items-start gap-4">
-                        <div className="w-full md:w-40 h-full lg:w-48 aspect-square bg-gray-100">
-                            <img
-                                src={'https://ik.imagekit.io/pds5n5l6d3/LogicQR/Dashboard%20section/7ec47348-583e-4a7a-9655-493c6c3b7b95-removebg-preview.png?updatedAt=1741522515589'}
-                                alt="Profile"
-                                className="w-full h-full rounded-md object-cover"
-                            />
+                        <div className="w-full shrink-0 md:w-40 lg:w-48 aspect-square">
+                            <Avatar name={employeeData?.employeeName} className="h-full w-full rounded-2xl text-3xl" ring={false} />
                         </div>
                         <div className="flex-1 w-full">
                             <div className="mb-2 md:mb-4">
@@ -340,7 +338,7 @@ const Dashboard = () => {
                             <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
                                 <button
                                     className={`text-sm sm:text-base p-2 px-4 rounded-md transition-colors ${showOverall
-                                            ? "bg-gradient-to-r from-[#151928] to-[#313860] text-white"
+                                            ? "bg-gradient-to-r from-[#121417] to-[#2A2D33] text-white"
                                             : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                                         }`}
                                     onClick={() => {
@@ -352,7 +350,7 @@ const Dashboard = () => {
                                 </button>
                                 <button
                                     className={`text-sm sm:text-base p-2 px-4 rounded-md transition-colors ${!showOverall
-                                            ? "bg-gradient-to-r from-[#151928] to-[#313860] text-white"
+                                            ? "bg-gradient-to-r from-[#121417] to-[#2A2D33] text-white"
                                             : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                                         }`}
                                     onClick={() => {
@@ -634,7 +632,7 @@ const Dashboard = () => {
                         </div>
 
                         <button
-                            className="w-full mt-6 bg-blue-900 text-white py-2.5 rounded-lg hover:bg-blue-800 transition-colors flex items-center justify-center"
+                            className="w-full mt-6 bg-blue-900 text-white py-2.5 rounded-lg hover:bg-ink/90 transition-colors flex items-center justify-center"
                             onClick={() => setSelectedCustomer(null)}
                         >
                             Close Details

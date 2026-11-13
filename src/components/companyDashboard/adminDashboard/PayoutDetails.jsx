@@ -14,6 +14,8 @@ import {
   FiCreditCard,
 } from "react-icons/fi";
 import { FaRupeeSign } from "react-icons/fa";
+import { useAuth } from "../../../lib/auth";
+import { normalizeTransaction } from "../../../lib/transactions";
 import {
   PieChart,
   Pie,
@@ -28,7 +30,6 @@ import {
   Dot,
   Line,
 } from "recharts";
-import { jwtDecode } from "jwt-decode";
 import axiosInstance from "../../auth/axios";
 
 const PayoutDetails = () => {
@@ -45,24 +46,20 @@ const PayoutDetails = () => {
   const [filterStatus, setFilterStatus] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
 
+  // The role comes from the server via the auth provider. This used to run
+  // `jwtDecode` on the refresh token, which is an opaque string now (and was
+  // never verified), so it would have sent every user back to the login page.
+  const { isAdmin } = useAuth();
   useEffect(() => {
-    const refreshToken = sessionStorage.getItem("refreshToken");
-    if (!refreshToken) navigate("/admin-login");
-    try {
-      const decodedToken = jwtDecode(refreshToken);
-      setRole(decodedToken.role === "ADMIN");
-    } catch (error) {
-      console.error("Invalid token", error);
-      navigate("/admin-login");
-    }
-  }, [navigate]);
+    setRole(isAdmin);
+  }, [isAdmin]);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const response = await axiosInstance.get(`/transactions/${employeeId}`);
+        const response = await axiosInstance.get(`/transactions/${employeeId}`, { params: { limit: 100 } });
         setTransactions(
-          response.data.map((t) => ({
+          (response.data?.items ?? []).map(normalizeTransaction).map((t) => ({
             ...t,
             date: new Date(t.createdAt).toLocaleDateString("en-US", {
               year: "numeric",
@@ -312,12 +309,12 @@ const PayoutDetails = () => {
                         >
                           <stop
                             offset="5%"
-                            stopColor="#8b5cf6"
+                            stopColor="#13B8CF"
                             stopOpacity={0.4}
                           />
                           <stop
                             offset="95%"
-                            stopColor="#8b5cf6"
+                            stopColor="#13B8CF"
                             stopOpacity={0}
                           />
                         </linearGradient>
@@ -325,13 +322,13 @@ const PayoutDetails = () => {
                       <CartesianGrid strokeDasharray="3 3" vertical={false} />
                       <XAxis
                         dataKey="name"
-                        tick={{ fill: "#1e3a8a" }}
-                        axisLine={{ stroke: "#cbd5e1" }}
+                        tick={{ fill: "#121417" }}
+                        axisLine={{ stroke: "#D6D3CC" }}
                       />
                       <YAxis
                         tickFormatter={(value) => `₹${value}`}
-                        tick={{ fill: "#1e3a8a" }}
-                        axisLine={{ stroke: "#cbd5e1" }}
+                        tick={{ fill: "#121417" }}
+                        axisLine={{ stroke: "#D6D3CC" }}
                       />
                       <Tooltip
                         content={({ active, payload }) =>
@@ -354,14 +351,14 @@ const PayoutDetails = () => {
                       <Area
                         type="monotone"
                         dataKey="amount"
-                        stroke="#7c3aed"
+                        stroke="#087889"
                         strokeWidth={2}
                         fillOpacity={1}
                         fill="url(#colorAmount)"
                         dot={
                           <Dot
                             r={4}
-                            fill="#7c3aed"
+                            fill="#087889"
                             strokeWidth={2}
                             stroke="#fff"
                           />
@@ -369,14 +366,14 @@ const PayoutDetails = () => {
                         activeDot={{
                           r: 6,
                           fill: "#fff",
-                          stroke: "#7c3aed",
+                          stroke: "#087889",
                           strokeWidth: 2,
                         }}
                       />
                       <Line
                         type="monotone"
                         dataKey="amount"
-                        stroke="#7c3aed"
+                        stroke="#087889"
                         strokeWidth={2}
                         dot={false}
                       />

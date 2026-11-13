@@ -1,0 +1,27 @@
+# https://www.logicqr.com/robots.txt
+
+User-agent: *
+Allow: /
+
+# Signed-in product pages and the per-customer review forms have nothing for a
+# crawler and should not appear in search results.
+Disallow: /dashboard/
+Disallow: /settings
+Disallow: /help-centre
+Disallow: /transactions
+Disallow: /review/
+Disallow: /admin-login
+Disallow: /staff/
+Disallow: /admin/
+Disallow: /account-setting
+Disallow: /employees-details
+Disallow: /help-dashboard
+Disallow: /payout
+Disallow: /temp-orders
+Disallow: /analytics
+
+# Signup carries ?cycle= and attribution parameters; the canonical version is
+# linked from the pricing page.
+Disallow: /register?
+
+Sitemap: https://www.logicqr.com/sitemap.xml

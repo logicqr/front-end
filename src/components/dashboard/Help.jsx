@@ -1,4 +1,5 @@
 import React from "react";
+import { FIRST_MONTH, MONTHLY, ANNUAL_PER_MONTH } from "../../data/site";
 import { useState, useEffect } from "react";
 import { LuShieldQuestion } from "react-icons/lu";
 import { LuTicket } from "react-icons/lu";
@@ -70,16 +71,16 @@ const faqData2 = [
     {
       question: "Is there a cost to use the QR feedback system?",
       answer:
-        "Yes, a one-time payment is required to activate your account and receive your QR code and dashboard access.",
+        `Yes. Your first month is ${FIRST_MONTH}, then it is ${MONTHLY} a month (or ${ANNUAL_PER_MONTH} a month if you pay yearly). It renews automatically and you can cancel any time from Account settings.`,
     },
     {
-      question: "How long does it take for positive reviews to appear online?",
-      answer: "Positive reviews are usually published instantly, but in some cases, they may take a few minutes to reflect.",
+      question: "How long does it take for a Google review to appear?",
+      answer: "A customer who rates you 4 or 5 stars is taken to your Google review page and posts it themselves. It usually shows up on Google within a few minutes of them submitting it, though Google can occasionally take longer.",
     },
     {
       question: "Can I download my negative reviews for record-keeping?",
       answer:
-        "Yes! You can export negative reviews from your dashboard to keep track of customer feedback over time.",
+        "Yes. You can export your private feedback from the dashboard to keep track of it over time.",
     },
     {
       question: "Can I integrate this system with my website?",
@@ -91,7 +92,7 @@ const faqData2 = [
 const faqData4 = [
     {
       question: " Make a Payment",
-      answer: "Complete the payment process to activate your account. Once the payment is confirmed, you can access a QR code and dashboard access. ",
+      answer: `Pay ${FIRST_MONTH} for your first month to activate your account. Once the payment is confirmed you get your QR code and dashboard straight away.`,
     },
     {
       question: "Set Up Your QR Code.",
@@ -148,16 +149,17 @@ const faqData4 = [
     };
 
     try {
-      const response = await axiosInstance.post(
-        "/users-help-center",
-        helpdeskData
-        // {
-        //   headers: { "Content-Type": "application/json" },
-        // }
-      );
+      // The server takes the account from the token now; user_id in the body
+      // is ignored, which is what stopped anyone filing tickets as anyone else.
+      const response = await axiosInstance.post("/my/tickets", {
+        comment: helpdeskData.comment,
+        name: helpdeskData.name,
+        email: helpdeskData.email,
+        phoneNumber: helpdeskData.phoneNumber,
+      });
 
-      if (response.status === 200) {
-        const submittedTicket = response.data.userHelpDesk; // Get the latest ticket
+      if (response.status === 200 || response.status === 201) {
+        const submittedTicket = response.data?.ticket;
         // console.log(submittedTicket);
         setTicketID(submittedTicket?.helpdesk_id || "N/A"); // Store Ticket ID
      
@@ -175,13 +177,11 @@ const faqData4 = [
     }
   };
 
-  const apiUrls = {
-    ALL: `/users/${userId}/helpdesk`,
-    OPEN: `/users/${userId}/helpdesk?status=OPEN`,
-    IN_PROGRESS:
-      `/users/${userId}/helpdesk?status=IN_PROGRESS`,
-    CLOSED:
-      `/users/${userId}/helpdesk?status=RESOLVED`,
+  const ticketParams = {
+    ALL: {},
+    OPEN: { status: "OPEN" },
+    IN_PROGRESS: { status: "IN_PROGRESS" },
+    CLOSED: { status: "RESOLVED" },
   };
 
   useEffect(() => {
@@ -191,8 +191,10 @@ const faqData4 = [
   const fetchData = async (status) => {
     try {
       setLoading(true); // Set loading to true before fetching
-      const response = await axiosInstance.get(apiUrls[status]);
-      setTickets(response.data.tickets);
+      const response = await axiosInstance.get("/my/tickets", {
+        params: { ...(ticketParams[status] ?? {}), limit: 50 },
+      });
+      setTickets(response.data?.items ?? []);
     } catch (error) {
       console.error("Error fetching tickets:", error);
       setError("Failed to fetch tickets");
@@ -228,7 +230,7 @@ const faqData4 = [
   
       <div className="container mx-auto lg:mt-32 mt-28 pb-8">
       <div className="w-[90%] mx-auto ">
-        <div className=' bg-[#032068] bg-center flex flex-col items-center justify-center space-y-5 lg:p-8 p-4 text-white mt-10 rounded-md'>
+        <div className=' bg-[#121417] bg-center flex flex-col items-center justify-center space-y-5 lg:p-8 p-4 text-white mt-10 rounded-md'>
           <h1 className=" md:text-lg text-base ">
             Welcome To Your Help Center
           </h1>
@@ -244,7 +246,7 @@ const faqData4 = [
               <button
                 className={`px-3 py-1  rounded-full flex items-center ${
                   activeSection === "FAQ"
-                    ? "bg-gradient-to-r from-[#313860] to-[#151928] text-white"
+                    ? "bg-gradient-to-r from-[#2A2D33] to-[#121417] text-white"
                     : "text-gray-700"
                 }`}
                 onClick={() => setActiveSection("FAQ")}
@@ -257,7 +259,7 @@ const faqData4 = [
               <button
                 className={`px-3 py-1  rounded-full flex items-center gap-1  ${
                   activeSection === "My Tickets"
-                    ? "bg-gradient-to-r from-[#313860] to-[#151928] text-white"
+                    ? "bg-gradient-to-r from-[#2A2D33] to-[#121417] text-white"
                     : "text-gray-700"
                 }`}
                 onClick={() => setActiveSection("My Tickets")}
@@ -271,7 +273,7 @@ const faqData4 = [
           </div>
           {activeSection === "FAQ" && (
             <div className="grid lg:grid-cols-2 grid-cols-1 w-full gap-5 lg:mt-10 mt-5">
-              <div className=" bg-[#FCF6FF] border border-[#E1A4FF] lg:p-6 p-4 rounded-xl mx-auto w-full">
+              <div className=" bg-[#FCF6FF] border border-[#E2DFF3] lg:p-6 p-4 rounded-xl mx-auto w-full">
                 <h2 className="md:text-xl text-base  font-bold mb-2 ">
                   Getting Started
                 </h2>
@@ -280,7 +282,7 @@ const faqData4 = [
                   {faqData1.map((item, index) => (
                     <div
                       key={index}
-                      className="border-b border-[#E1A4FF] py-3 mt-3"
+                      className="border-b border-[#E2DFF3] py-3 mt-3"
                     >
                       <div
                         className="flex justify-between items-center cursor-pointer "
@@ -295,9 +297,9 @@ const faqData4 = [
                           className="text-lg font-bold"
                         >
                           {openIndex === index ? (
-                            <IoMdClose className="text-3xl border border-[#E1A4FF] w-8 h-8 rounded-full p-1" />
+                            <IoMdClose className="text-3xl border border-[#E2DFF3] w-8 h-8 rounded-full p-1" />
                           ) : (
-                            <IoMdAdd className="text-3xl border border-[#E1A4FF] w-8 h-8 rounded-full p-1 " />
+                            <IoMdAdd className="text-3xl border border-[#E2DFF3] w-8 h-8 rounded-full p-1 " />
                           )}
                         </motion.button>
                       </div>
@@ -321,7 +323,7 @@ const faqData4 = [
                   ))}
                 </div>
               </div>
-              <div className=" bg-[#FFF8F5] border border-[#FFC6AD] lg:p-6 p-4 rounded-xl mx-auto w-full">
+              <div className=" bg-[#FFF8F5] border border-[#F4DCD6] lg:p-6 p-4 rounded-xl mx-auto w-full">
                 <h2 className="md:text-xl text-base  font-bold mb-2 ">
                 Managing Your Subscription
                 </h2>
@@ -330,7 +332,7 @@ const faqData4 = [
                   {faqData2.map((item, index) => (
                     <div
                       key={index}
-                      className="border-b border-[#FFC6AD] py-3 mt-3"
+                      className="border-b border-[#F4DCD6] py-3 mt-3"
                     >
                       <div
                         className="flex justify-between items-center cursor-pointer "
@@ -345,9 +347,9 @@ const faqData4 = [
                           className="text-lg font-bold"
                         >
                           {openIndex1 === index ? (
-                            <IoMdClose className="text-3xl border border-[#FFC6AD] w-8 h-8 rounded-full p-1" />
+                            <IoMdClose className="text-3xl border border-[#F4DCD6] w-8 h-8 rounded-full p-1" />
                           ) : (
-                            <IoMdAdd className="text-3xl border border-[#FFC6AD] w-8 h-8 rounded-full p-1 " />
+                            <IoMdAdd className="text-3xl border border-[#F4DCD6] w-8 h-8 rounded-full p-1 " />
                           )}
                         </motion.button>
                       </div>
@@ -372,7 +374,7 @@ const faqData4 = [
                 </div>
               </div>
               <div className=" text-lg  font-medium">
-                <div className=" bg-[#E3FFE7] border border-[#14BA6D] lg:p-6 p-4 rounded-xl mx-auto">
+                <div className=" bg-[#E3FFE7] border border-[#1F8A4C] lg:p-6 p-4 rounded-xl mx-auto">
                   <h2 className="md:text-xl text-base font-bold mb-2">
                   Troubleshooting
                   </h2>
@@ -381,7 +383,7 @@ const faqData4 = [
                     {faqData3.map((item, index) => (
                       <div
                         key={index}
-                        className="border-b border-[#14BA6D] py-3 mt-3"
+                        className="border-b border-[#1F8A4C] py-3 mt-3"
                       >
                         <div
                           className="flex justify-between items-center cursor-pointer "
@@ -396,9 +398,9 @@ const faqData4 = [
                             className="text-lg font-bold"
                           >
                             {openIndex2 === index ? (
-                              <IoMdClose className="text-3xl border border-[#14BA6D] w-8 h-8 rounded-full p-1" />
+                              <IoMdClose className="text-3xl border border-[#1F8A4C] w-8 h-8 rounded-full p-1" />
                             ) : (
-                              <IoMdAdd className="text-3xl border border-[#14BA6D] w-8 h-8 rounded-full p-1 " />
+                              <IoMdAdd className="text-3xl border border-[#1F8A4C] w-8 h-8 rounded-full p-1 " />
                             )}
                           </motion.button>
                         </div>
@@ -424,7 +426,7 @@ const faqData4 = [
                 </div>
               </div>
               <div className=" text-lg  font-medium">
-                <div className=" bg-[#EAEDFF] border border-[#899BFF] lg:p-6 p-4 rounded-xl mx-auto ">
+                <div className=" bg-[#EAEDFF] border border-[#9EC1FF] lg:p-6 p-4 rounded-xl mx-auto ">
                   <h2 className="md:text-xl text-base font-bold mb-2">
                   How to Use?
                   </h2>
@@ -433,7 +435,7 @@ const faqData4 = [
                     {faqData4.map((item, index) => (
                       <div
                         key={index}
-                        className="border-b border-[#899BFF] py-3 mt-3"
+                        className="border-b border-[#9EC1FF] py-3 mt-3"
                       >
                         <div
                           className="flex justify-between items-center cursor-pointer "
@@ -448,9 +450,9 @@ const faqData4 = [
                             className="text-lg font-bold"
                           >
                             {openIndex3 === index ? (
-                              <IoMdClose className="text-3xl border border-[#899BFF] w-8 h-8 rounded-full p-1" />
+                              <IoMdClose className="text-3xl border border-[#9EC1FF] w-8 h-8 rounded-full p-1" />
                             ) : (
-                              <IoMdAdd className="text-3xl border border-[#899BFF] w-8 h-8 rounded-full p-1 " />
+                              <IoMdAdd className="text-3xl border border-[#9EC1FF] w-8 h-8 rounded-full p-1 " />
                             )}
                           </motion.button>
                         </div>
@@ -494,7 +496,7 @@ const faqData4 = [
                         key={status}
                         className={`cursor-pointer md:text-base text-xs pb-2 mb-3 w-full flex items-center capitalize justify-center  relative ${
                           activeStatus === status
-                            ? "text-[#032068]"
+                            ? "text-[#121417]"
                             : "text-gray-500"
                         }`}
                         onClick={() => setActiveStatus(status)}
@@ -507,7 +509,7 @@ const faqData4 = [
                         <span
                           className={`absolute bottom-0 left-0 w-full h-[3px] transition-all ${
                             activeStatus === status
-                              ? "bg-[#032068]"
+                              ? "bg-[#121417]"
                               : "bg-gray-300"
                           }`}
                         ></span>
@@ -602,9 +604,9 @@ const faqData4 = [
                     {/* Page Numbers with Dynamic Background Color */}
                     <p className="text-lg flex gap-4">
                       <span
-                        className={`border border-[#032068] w-full px-3 py-1 text-center transition ${
+                        className={`border border-[#121417] w-full px-3 py-1 text-center transition ${
                           currentPage > 1
-                            ? "bg-[#032068] text-white"
+                            ? "bg-[#121417] text-white"
                             : "bg-transparent"
                         }`}
                       >
@@ -612,10 +614,10 @@ const faqData4 = [
                       </span>
 
                       <span
-                        className={` border border-[#032068] w-full px-3 py-1 text-center transition ${
+                        className={` border border-[#121417] w-full px-3 py-1 text-center transition ${
                           currentPage >=
                           Math.ceil(tickets.length / ticketsPerPage)
-                            ? "bg-[#032068] text-white"
+                            ? "bg-[#121417] text-white"
                             : "bg-transparent"
                         }`}
                       >
@@ -718,7 +720,7 @@ const faqData4 = [
 
                       <button
                         type="submit"
-                        className="w-full bg-gradient-to-r from-[#313860] to-[#151928] text-white p-2 rounded-md  transition"
+                        className="w-full bg-gradient-to-r from-[#2A2D33] to-[#121417] text-white p-2 rounded-md  transition"
                       >
                         Submit
                       </button>
@@ -734,7 +736,7 @@ const faqData4 = [
                         <p className="text-sm text-gray-600">Total tickets</p>
                         <p className="text-2xl font-bold">{tickets.length}</p>
                       </div>
-                      <BsChatHeart className="w-8 h-8 text-white bg-[#032068] p-2 rounded-lg" />
+                      <BsChatHeart className="w-8 h-8 text-white bg-[#121417] p-2 rounded-lg" />
                     </div>
 
                     <div className="grid grid-cols-2 items-center justify-between gap-2 ">
@@ -773,20 +775,20 @@ const faqData4 = [
           <h1 className="text-lg font-semibold">Contact Us</h1>
           <div className="grid lg:grid-cols-3 md:grid-cols-2  grid-cols-1 gap-4  ">
             {/* <div className="border  flex items-center rounded-md lg:justify-center gap-2 p-4">
-              <p className="text-[#032068]">
+              <p className="text-[#121417]">
                 <FaPhoneAlt />
               </p>
               <a href="tel:9015182615">+91 9150182615</a>
             </div> */}
-            <div className="border border-[#E5EFFF] rounded-md flex items-center lg:justify-center gap-2 p-4">
-              <p className="text-xl text-[#032068]">
+            <div className="border border-[#D9E5F1] rounded-md flex items-center lg:justify-center gap-2 p-4">
+              <p className="text-xl text-[#121417]">
                 <IoMail />
               </p>
               <a href="mailto:thelogicqr@gmail.com">thelogicqr@gmail.com</a>
             </div>
 
-            <div className="border border-[#E5EFFF] flex rounded-md items-center lg:justify-center gap-2 p-4">
-              <p className="text-xl text-[#032068]">
+            <div className="border border-[#D9E5F1] flex rounded-md items-center lg:justify-center gap-2 p-4">
+              <p className="text-xl text-[#121417]">
                 <TbWorld />
               </p>
               <a
@@ -797,8 +799,8 @@ const faqData4 = [
                 www.logicqr.com
               </a>
             </div>
-            <div className="border border-[#E5EFFF] rounded-md lg:justify-center flex items-center gap-2  p-4">
-              <p className="text-xl text-[#032068]">
+            <div className="border border-[#D9E5F1] rounded-md lg:justify-center flex items-center gap-2  p-4">
+              <p className="text-xl text-[#121417]">
                 <FaLocationDot />
               </p>
               <a href="tel:9015182615">velachery chennai,600042</a>
@@ -813,7 +815,7 @@ const faqData4 = [
         href="https://www.linkedin.com/in/webzspot/"
         target="_blank"
         rel="noopener noreferrer"
-        className="border border-[#F7FAFF] bg-[#F7FAFF] w-8 h-8 flex items-center justify-center rounded-full p-1 text-[#032068] hover:bg-[#032068] hover:text-white transition"
+        className="border border-[#FBFAF8] bg-[#FBFAF8] w-8 h-8 flex items-center justify-center rounded-full p-1 text-[#121417] hover:bg-[#121417] hover:text-white transition"
       >
         <RiLinkedinFill />
       </a>
@@ -821,7 +823,7 @@ const faqData4 = [
         href="https://www.instagram.com/webzspot/?next=%2F"
         target="_blank"
         rel="noopener noreferrer"
-        className="border border-[#F7FAFF] bg-[#F7FAFF] w-8 h-8 flex items-center justify-center rounded-full p-1 text-[#032068] hover:bg-[#032068] hover:text-white transition"
+        className="border border-[#FBFAF8] bg-[#FBFAF8] w-8 h-8 flex items-center justify-center rounded-full p-1 text-[#121417] hover:bg-[#121417] hover:text-white transition"
       >
         <RiInstagramLine />
       </a>
@@ -829,7 +831,7 @@ const faqData4 = [
         href="https://www.facebook.com/profile.php?id=61565656703377"
         target="_blank"
         rel="noopener noreferrer"
-        className="border border-[#F7FAFF] bg-[#F7FAFF] w-8 h-8 flex items-center justify-center rounded-full p-1 text-[#032068] hover:bg-[#032068] hover:text-white transition"
+        className="border border-[#FBFAF8] bg-[#FBFAF8] w-8 h-8 flex items-center justify-center rounded-full p-1 text-[#121417] hover:bg-[#121417] hover:text-white transition"
       >
         <FaFacebookF />
       </a>
@@ -849,7 +851,7 @@ const faqData4 = [
               trigger="in"
               delay=""
               state="in-reveal"
-              colors="primary:#30e849"
+              colors="primary:#1F8A4C"
               style={{ width: "100%", height: "100%" }}
               >
               </lord-icon>
@@ -869,7 +871,7 @@ const faqData4 = [
               <div className="flex justify-between ">
                 <button
                   onClick={() => setShowSuccessModal(false)}
-                  className="bg-[#032068] w-full py-2 text-white rounded-md  transition"
+                  className="bg-[#121417] w-full py-2 text-white rounded-md  transition"
                 >
                   Close
                 </button>

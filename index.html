@@ -1,27 +1,81 @@
 <!doctype html>
 <html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#F3F2EE" />
 
-<head>
-  <meta charset="UTF-8" />
-  <link rel="icon" type="image/png" sizes="32x32"
-    href="https://ik.imagekit.io/pds5n5l6d3/LogicQR/qr_logo_1.png?updatedAt=1741594751710" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>LogicQR - QR Feedback System</title>
-  <!-- Google tag (gtag.js) -->
-  <script async src="https://www.googletagmanager.com/gtag/js?id=G-R372C2PX6F"></script>
-  <script>
-    window.dataLayer = window.dataLayer || [];
-    function gtag() { dataLayer.push(arguments); }
-    gtag('js', new Date());
-    gtag('config', 'G-R372C2PX6F');
-  </script>
-</head>
+    <!--
+      Fallback metadata. Each route replaces these through react-helmet-async;
+      these are what a crawler or scraper sees before that runs, and what the
+      previous version had none of.
+    -->
+    <title>LogicQR — Get more Google reviews from a QR code</title>
+    <meta
+      name="description"
+      content="Put a QR code where your customers pay. They scan, rate, and the happy ones land on your Google review page. The rest reaches you privately so you can fix it."
+    />
+    <link rel="canonical" href="https://www.logicqr.com/" />
 
-<body>
-  <div id="root"></div>
-  <script type="module" src="/src/main.jsx"></script>
-  <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
-  <script src="https://cdn.lordicon.com/lordicon.js"></script>
-</body>
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="LogicQR" />
+    <meta property="og:title" content="LogicQR — Get more Google reviews from a QR code" />
+    <meta
+      property="og:description"
+      content="Put a QR code where your customers pay. They scan, rate, and the happy ones land on your Google review page."
+    />
+    <meta property="og:url" content="https://www.logicqr.com/" />
+    <meta property="og:image" content="https://www.logicqr.com/og-default.png" />
+    <meta name="twitter:card" content="summary_large_image" />
 
+    <link
+      rel="icon"
+      type="image/png"
+      sizes="32x32"
+      href="https://ik.imagekit.io/pds5n5l6d3/LogicQR/qr_logo_1.png?updatedAt=1741594751710"
+    />
+    <link rel="apple-touch-icon" href="https://ik.imagekit.io/pds5n5l6d3/LogicQR/qr_logo_1.png?updatedAt=1741594751710" />
+
+    <!-- The image CDN is on the critical path for the marketing pages. -->
+    <link rel="preconnect" href="https://ik.imagekit.io" crossorigin />
+
+    <!--
+      Razorpay's checkout script is loaded on demand by the pages that take
+      payment, and the lordicon script was removed entirely — both used to load
+      on every page of the site, including the landing page, where neither is
+      used.
+    -->
+
+    <!-- Google Analytics, deferred so it does not compete with first paint. -->
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag() {
+        dataLayer.push(arguments);
+      }
+      gtag('js', new Date());
+      gtag('config', 'G-R372C2PX6F', { anonymize_ip: true });
+
+      addEventListener('load', function () {
+        var s = document.createElement('script');
+        s.async = true;
+        s.src = 'https://www.googletagmanager.com/gtag/js?id=G-R372C2PX6F';
+        document.head.appendChild(s);
+      });
+    </script>
+  </head>
+
+  <body>
+    <div id="root"></div>
+    <noscript>
+      <div style="max-width: 36rem; margin: 10vh auto; padding: 0 1.5rem; font-family: system-ui, sans-serif">
+        <h1 style="font-size: 1.5rem; letter-spacing: -0.02em">LogicQR needs JavaScript</h1>
+        <p style="color: #4a4944; line-height: 1.6">
+          This page will not work with JavaScript turned off. If you are trying to leave feedback for a business,
+          searching for them on Google works too — or email
+          <a href="mailto:thelogicqr@gmail.com" style="color: #087889">thelogicqr@gmail.com</a> and we will help.
+        </p>
+      </div>
+    </noscript>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
 </html>

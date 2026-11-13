@@ -35,10 +35,16 @@ const HelpDashboard = () => {
     const fetchTickets = async () => {
 
       try {
-        const response = await axiosInstance.get("/users-help-center");
-        if (response.data && response.data.allTickets
+        const response = await axiosInstance.get("/admin/tickets", { params: { limit: 100 } });
+        if (response.data && response.data.items
         ) {
-          setTickets(response.data.allTickets
+          // The API nests the customer under `user`; the table reads a flat user_id.
+          setTickets(
+            response.data.items.map((t) => ({
+              ...t,
+              user_id: t.user?.user_id ?? t.user_id,
+              businessName: t.user?.businessName ?? '',
+            }))
           );
           // console.log(response.data.allTickets)
         } else {
@@ -114,42 +120,42 @@ const HelpDashboard = () => {
           <h1 className='text-lg '>Ticket Metrics</h1>
           <div className=' flex items-center lg:flex-row flex-col justify-between w-full lg:gap-5 gap-3'>
             <div className='w-full flex items-center justify-between lg:gap-5 gap-2'>
-              <div className=' flex items-center justify-between w-full border border-[#B353FF] bg-[#edd7ff] rounded-md lg:p-5 p-2 '>
+              <div className=' flex items-center justify-between w-full bg-pastel-lilac rounded-md lg:p-5 p-2 '>
                 <div>
                   <h1 className='md:text-base text-xs' >Total tickets</h1>
                   <h1 className='md:text-lg lg:text-2xl text-base font-semibold'>{tickets.length}</h1>
                 </div>
-                <div className='bg-[#B353FF] md:w-10 md:h-10  w-7 h-7 rounded-full flex items-center justify-center'>
+                <div className='bg-[#087889] md:w-10 md:h-10  w-7 h-7 rounded-full flex items-center justify-center'>
                   <IoTicketSharp className='md:text-xl text-base text-white' />
                 </div>
               </div>
 
-              <div className=' flex items-center justify-between w-full border border-red-500 bg-red-200 rounded-md lg:p-5 p-2'>
+              <div className=' flex items-center justify-between w-full bg-pastel-blush rounded-md lg:p-5 p-2'>
                 <div className='md:text-base text-sm'>
                   <h1 className='md:text-base text-xs' >Open tickets</h1>
                   <h1 className='md:text-lg lg:text-2xl text-base font-semibold'>{openTickets}</h1>
                 </div>
-                <div className='bg-red-500 md:w-10 md:h-10  w-7 h-7 rounded-full flex items-center justify-center'>
+                <div className='bg-signal-warn md:w-10 md:h-10  w-7 h-7 rounded-full flex items-center justify-center'>
                   < RiGitClosePullRequestLine className='md:text-xl text-base text-white' />
 
                 </div>
               </div></div>
             <div className='w-full flex items-center justify-between lg:gap-5 gap-2'>
-              <div className=' flex items-center justify-between w-full  border rounded-md border-yellow-500 bg-yellow-100 lg:p-5 p-2'>
+              <div className=' flex items-center justify-between w-full  rounded-md bg-pastel-butter lg:p-5 p-2'>
                 <div className='md:text-base text-sm'>
                   <h1 className='md:text-base text-xs' >In Progress</h1>
                   <h1 className='md:text-lg lg:text-2xl text-base font-semibold'>{inProgressTickets}</h1>
                 </div>
-                <div className='bg-yellow-500 md:w-10 md:h-10  w-7 h-7 rounded-full flex items-center justify-center'>
+                <div className='bg-ink md:w-10 md:h-10  w-7 h-7 rounded-full flex items-center justify-center'>
                   <TbProgressAlert className='md:text-xl text-base text-white' />
                 </div>
               </div>
-              <div className=' flex items-center justify-between w-full rounded-md lg:p-5 p-2 border border-green-500 bg-green-100 '>
+              <div className=' flex items-center justify-between w-full rounded-md lg:p-5 p-2 bg-pastel-sage '>
                 <div className='md:text-base text-sm'>
                   <h1 className='md:text-base text-xs'>Resolved</h1>
                   <h1 className=' md:text-lg lg:text-2xl text-base font-semibold'>{resolvedTickets}</h1>
                 </div>
-                <div className='bg-green-500 md:w-10 md:h-10  w-7 h-7 rounded-full flex items-center justify-center'>
+                <div className='bg-signal-live md:w-10 md:h-10  w-7 h-7 rounded-full flex items-center justify-center'>
                   <TbProgressCheck className='md:text-xl text-base text-white' />
 
                 </div>
@@ -166,7 +172,7 @@ const HelpDashboard = () => {
             {["Open", "In Progress", "Resolved"].map((tab) => (
               <button
                 key={tab}
-                className={`px-4 py-1 rounded-full  text-xs md:text-base   ${activeTab === tab ? "bg-[#032068] text-white" : "bg-gray-100 text-gray-700 border b"}`}
+                className={`px-4 py-1 rounded-full  text-xs md:text-base   ${activeTab === tab ? "bg-[#121417] text-white" : "bg-gray-100 text-gray-700 border b"}`}
                 onClick={() => {
                   setActiveTab(tab);
                   setCurrentPage(1);
@@ -181,7 +187,7 @@ const HelpDashboard = () => {
         <div className="mt-5 lg:p-4 p-3 lg:bg-white border rounded-md">
           <div className="flex lg:justify-between flex-col lg:flex-row lg:items-center gap-4   pb-2 ">
             <div>
-              <h2 className="text-lg font-semibold">Tickets Table <span className="text-blue-500  border border-[#0070FF] bg-sky-50 rounded-full px-2 text-xs">{currentTickets.length}
+              <h2 className="text-lg font-semibold">Tickets Table <span className="text-blue-500  border border-[#087889] bg-sky-50 rounded-full px-2 text-xs">{currentTickets.length}
               </span></h2>
               <h2 className='text-sm'>Latest Reviews overviews</h2>
             </div>
@@ -190,9 +196,9 @@ const HelpDashboard = () => {
               <div className="flex space-x-3 items-center">
               <input type="text" className='w-96 h-10 border focus:outline-none rounded-md border-gray-400 p-2 ' value={searchQuery} placeholder='Search Here ... '
                 onChange={(e) => setSearchQuery(e.target.value)} />
-                <button className="bg-gradient-to-r from-[#313860] to-[#151928] text-white lg:px-4 px-3 h-10 lg:py-1 flex items-center gap-2  rounded-md text-sm lg:text-base" onClick={exportPDF}><span className='md:block hidden' >Export</span> <span className='lg:text-xl text-base  '><FiUploadCloud /></span></button>
+                <button className="bg-gradient-to-r from-[#2A2D33] to-[#121417] text-white lg:px-4 px-3 h-10 lg:py-1 flex items-center gap-2  rounded-md text-sm lg:text-base" onClick={exportPDF}><span className='md:block hidden' >Export</span> <span className='lg:text-xl text-base  '><FiUploadCloud /></span></button>
                 </div>)}
-              {/* <button className="bg-[#032068] text-white flex items-center gap-2 lg:px-4 px-3 py-2 lg:py-1 rounded-sm text-sm lg:text-base" onClick={searchQuery}><span className='lg:text-xl text-base  '></span><span className='md:block hidden'>Filter</span></button> */}
+              {/* <button className="bg-[#121417] text-white flex items-center gap-2 lg:px-4 px-3 py-2 lg:py-1 rounded-sm text-sm lg:text-base" onClick={searchQuery}><span className='lg:text-xl text-base  '></span><span className='md:block hidden'>Filter</span></button> */}
              
           </div>
           <div className="overflow-x-auto hidden lg:block mt-3">
@@ -286,17 +292,14 @@ const HelpDashboard = () => {
           )}
             {!loading && !error &&
             currentTickets.map((ticket) => (
-              <div className='pb-5'>
+              <div className='pb-5' key={ticket.helpdesk_id}>
                 <div
-                key={ticket.helpdesk_id}
                 className="border rounded-lg p-5 bg-white  space-y-3   relative"
               >
-                <button
-                  onClick={() => handleDelete(ticket.helpdesk_id)}
-                  className="absolute top-3 right-3 p-2 text-red-600 hover:text-red-800 transition duration-300"
-                >
-                  <FaTrash size={18} />
-                </button>
+                {/* The delete button called a `handleDelete` that was never
+                    defined, so pressing it threw a ReferenceError. Support
+                    tickets are a record of what customers reported, so there is
+                    no delete endpoint either — the status workflow closes them. */}
       
                 <p className="text-gray-700">
                   <strong>Name:</strong> {ticket.name || "N/A"}
@@ -337,7 +340,7 @@ const HelpDashboard = () => {
                 </p>
       
                 <button
-                  className="w-full mt-4 bg-blue-900 text-white py-2 rounded-md hover:bg-blue-800 transition duration-300"
+                  className="w-full mt-4 bg-blue-900 text-white py-2 rounded-md hover:bg-ink/90 transition duration-300"
                   onClick={() => navigate(`/help-dashboard/${ticket.helpdesk_id}`)}
                 >
                   View Ticket
@@ -351,7 +354,7 @@ const HelpDashboard = () => {
           <div className="flex justify-center lg:justify-end mt-4">
             <button
               disabled={currentPage === 1}
-              className={`px-3 py-1 border rounded-l-md ${currentPage === 1 ? "bg-gray-300 cursor-not-allowed" : "bg-blue-600 text-white"}`}
+              className={`px-3 py-1 border rounded-l-md ${currentPage === 1 ? "bg-gray-300 cursor-not-allowed" : "bg-ink text-white"}`}
               onClick={() => setCurrentPage((prev) => prev - 1)}
             >
               Prev
@@ -359,7 +362,7 @@ const HelpDashboard = () => {
             <span className="px-4 py-1 border">{currentPage}</span>
             <button
               disabled={indexOfLastTicket >= filteredTickets.length}
-              className={`px-3 py-1 border rounded-r-md ${indexOfLastTicket >= filteredTickets.length ? "bg-gray-300 cursor-not-allowed" : "bg-blue-600 text-white"}`}
+              className={`px-3 py-1 border rounded-r-md ${indexOfLastTicket >= filteredTickets.length ? "bg-gray-300 cursor-not-allowed" : "bg-ink text-white"}`}
               onClick={() => setCurrentPage((prev) => prev + 1)}
             >
               Next

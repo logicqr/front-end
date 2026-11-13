@@ -58,30 +58,25 @@ function StaffRegister() {
                 employeeEmail: formData.employeeEmail.toLowerCase(), // Convert email to lowercase
             };
             const response = await axiosInstance.post("/employees/register", formattedData);
-            if (response.status === 200) {
+            // The API answers 201 with { employee: {...} }.
+            if (response.status === 200 || response.status === 201) {
+                const created = response.data?.employee;
                 setMessage("Registration Successful");
-                // console.log("Registration Successful:", response.data);
-                // console.log(response.data.data.employeeName)
-                // console.log(response.data.data.referralCode)
-                // console.log(response.data.data.role)
-                // console.log(response.data.data.createdAt)
-                // console.log(response.data.data.employeeEmail)
-                const date = new Date(response.data.data.createdAt);
+                const date = new Date(created.createdAt);
                 const formattedDate = (date.getMonth() + 1) + '/' + date.getDate() + '/' + date.getFullYear();
-                setRole(response.data.data.role)
-                setRefferralId(response.data.data.referralCode)
-                setName(response.data.data.employeeName)
-                const id = response.data.data.employee_id.toUpperCase();
-                setStaffId(id)
-                setEmail(response.data.data.employeeEmail)
+                setRole(created.role)
+                setRefferralId(created.referralCode)
+                setName(created.employeeName)
+                setStaffId(created.employee_id.toUpperCase())
+                setEmail(created.employeeEmail)
                 setDoj(formattedDate)
                 setIsOpen2(true)
             } else {
                 setMessage("Contact Administration")
             }
         } catch (error) {
-            setMessage(error.response?.data?.message || "Registration Failed");
-            console.error("Registration Failed:", error.response?.data || error.message);
+            setMessage(error.message || "Registration Failed");
+            console.error("Registration Failed:", error.message);
         }
     };
     const handleViewProfile = () => {
@@ -302,7 +297,7 @@ function StaffRegister() {
                   colors="primary:#ffffff"
                   style={{ width: "70px", height: "70px" }}>
                 </lord-icon> */}
-                                    <div className='rounded-full flex items-center border-2  p-2 border-[#30e849] justify-center '>
+                                    <div className='rounded-full flex items-center border-2  p-2 border-[#1F8A4C] justify-center '>
 
 
                                         <lord-icon
@@ -310,7 +305,7 @@ function StaffRegister() {
                                             trigger="in"
                                             delay=""
                                             state="in-reveal"
-                                            colors="primary:#30e849"
+                                            colors="primary:#1F8A4C"
                                             style={{ width: "30px", height: "30px" }}>
                                         </lord-icon>
                                     </div>

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import axiosInstance from "../../auth/axios";
+import Avatar from "../../common/Avatar";
 import {
   FaPhoneAlt,
   FaEnvelope,
@@ -22,15 +23,6 @@ const Card = ({ children, className }) => (
   </motion.div>
 );
 
-const Avatar = ({ src, alt, className }) => (
-  <div className={`relative ${className}`}>
-    <img
-      src={src}
-      alt={alt}
-      className="rounded-full w-full h-full object-cover border-2 border-white shadow-sm"
-    />
-  </div>
-);
 
 const MetricCard = ({ title, value, icon, color, loading }) => (
   <Card className="p-4 h-full">
@@ -38,14 +30,14 @@ const MetricCard = ({ title, value, icon, color, loading }) => (
       <div>
         <p className="text-2xl font-bold text-gray-800">
           {loading ? (
-            <div className="h-8 w-20 bg-gray-200 rounded animate-pulse" />
+            <span className="block h-8 w-20 bg-gray-200 rounded animate-pulse" />
           ) : (
             value
           )}
         </p>
         <p className="text-sm text-gray-600 mt-1">
           {loading ? (
-            <div className="h-4 w-24 bg-gray-200 rounded animate-pulse" />
+            <span className="block h-4 w-24 bg-gray-200 rounded animate-pulse" />
           ) : (
             title
           )}
@@ -75,12 +67,12 @@ const AdminDashboard = () => {
       setLoading(true);
       const [adminData, teamData] = await Promise.all([
         axiosInstance.get(`/employees/${AdminId}`),
-        axiosInstance.get(`/admin/${AdminId}`),
+        axiosInstance.get(`/admin/employees/${AdminId}`),
       ]);
 
-      setAdminProfile(adminData.data.data);
-      setEmployees(teamData.data.employees);
-      setUsers(teamData.data.users);
+      setAdminProfile(adminData.data?.employee ?? null);
+      setEmployees(teamData.data?.team ?? []);
+      setUsers(teamData.data?.customers?.items ?? []);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -110,7 +102,7 @@ const AdminDashboard = () => {
           <p className="text-gray-600 mb-4">{error}</p>
           <button
             onClick={fetchData}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+            className="px-4 py-2 bg-ink text-white rounded-lg hover:bg-ink/90 transition-colors font-medium"
           >
             Try Again
           </button>
@@ -132,7 +124,7 @@ const AdminDashboard = () => {
         </h1>
         <p className="text-gray-600 mt-1 md:mt-2 text-sm md:text-base">
           {loading ? (
-            <div className="h-4 bg-gray-200 rounded w-80 mt-2 animate-pulse" />
+            <span className="block h-4 bg-gray-200 rounded w-80 mt-2 animate-pulse" />
           ) : (
             employees.length > 0
               ? `${totalStaff} team members • ${users.length} total referrals`
@@ -170,12 +162,11 @@ const AdminDashboard = () => {
           </div>
 
           {/* Charts */}
-          <Card className=" md:p-6 ">
-            <Charts
-              hasData={employees.length > 0 || users.length > 0}
-              loading={loading}
-            />
-          </Card>
+          {/* Charts draws its own card. */}
+          <Charts
+            hasData={employees.length > 0 || users.length > 0}
+            loading={loading}
+          />
 
           {/* Team Members */}
           <Card className="p-4 md:p-6">
@@ -250,10 +241,7 @@ const AdminDashboard = () => {
               {loading ? (
                 <div className="w-20 h-20 bg-gray-200 rounded-full animate-pulse" />
               ) : (
-                <Avatar
-                  src={`https://ik.imagekit.io/pds5n5l6d3/LogicQR/Dashboard%20section/7ec47348-583e-4a7a-9655-493c6c3b7b95-removebg-preview.png?updatedAt=1741522515589`}
-                  className="w-20 h-20"
-                />
+                <Avatar name={adminProfile?.employeeName} className="h-20 w-20 text-2xl" />
               )}
               <div className="mt-4 text-center">
                 <h3 className="font-semibold text-gray-800">

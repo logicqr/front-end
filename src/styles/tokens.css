@@ -1,0 +1,62 @@
+/**
+ * LogicQR design tokens.
+ *
+ * Carried over from the webzspot/buildfree system so the two properties read as
+ * one family: warm paper ground, near-black ink, a single signal cyan, and a
+ * set of pastel card grounds. Inter for text, Roboto Serif italic for the
+ * emphasised phrases inside headlines, JetBrains Mono for anything that is
+ * data — codes, prices in tables, counts.
+ *
+ * Everything downstream reads these. The dashboard reads the same values
+ * through tailwind.config.js, which is what retired the 56 loose hex literals.
+ */
+
+:root {
+  /* --- ground & ink --- */
+  --paper: #f3f2ee;
+  --card: #fbfaf8;
+  --ink: #121417;
+  --ink2: #4a4944;
+  --mute: #6f6d67;
+  --line: rgba(18, 20, 23, 0.1);
+  --line-strong: rgba(18, 20, 23, 0.18);
+
+  /* --- signal --- */
+  --acc: #13b8cf; /* fills, marks, focus rings */
+  --acc-ink: #087889; /* cyan that passes AA as text on paper */
+  --acc-dark: #4fdcec; /* cyan on ink surfaces */
+  --acc-soft: #ddf4f7; /* tints */
+  --warm: #ff6a3d; /* only for alerts and lapsed states */
+  --live: #1f8a4c; /* "working", "paid", "active" */
+  --live-soft: #e5f4e8;
+
+  /* --- pastel card grounds --- */
+  --sage: #dce7d6;
+  --butter: #f2e8c4;
+  --lilac: #e2dff3;
+  --blush: #f4dcd6;
+  --sky: #d9e5f1;
+  --lime: #d4f36b;
+  --pink: #ffb4d2;
+  --orange: #ffb15c;
+  --violet: #c9b8ff;
+  --yellow: #ffe36b;
+  --cyanb: #8ee6f2;
+  --blue: #9ec1ff;
+
+  /* --- type --- */
+  --sans: 'Inter Variable', 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --serif: 'Roboto Serif Variable', 'Roboto Serif', Georgia, 'Times New Roman', serif;
+  --mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+
+  /* --- rhythm --- */
+  --gut: clamp(20px, 5vw, 72px);
+  --maxw: 1296px;
+  --side: max(var(--gut), calc((100% - var(--maxw)) / 2));
+  --r: 22px;
+  --r-lg: 32px;
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* Set by the nav so sticky elements below it can track its height. */
+  --nav-offset: 64px;
+}

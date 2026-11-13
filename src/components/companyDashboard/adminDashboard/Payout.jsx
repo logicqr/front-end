@@ -18,6 +18,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import axiosInstance from "../../auth/axios";
+import { normalizeTransaction } from "../../../lib/transactions";
 
 const Payout = () => {
   const [employees, setEmployees] = useState([]);
@@ -54,8 +55,9 @@ const Payout = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const response = await axiosInstance.get("/transactions/");
-        const data = response.data;
+        const response = await axiosInstance.get("/admin/transactions", { params: { limit: 100 } });
+        // Amounts are paise now, and the list is paginated.
+        const data = (response.data?.items ?? []).map(normalizeTransaction);
 
         // Calculate totals
         const total = data.reduce((sum, t) => sum + t.amount, 0);
@@ -76,13 +78,13 @@ const Payout = () => {
               totalTransactions: 0,
               totalAmount: 0,
               uniqueUsers: new Set(),
-              statusCounts: { paid: 0, pending: 0 },
+              statusCounts: { paid: 0, pending: 0, failed: 0, refunded: 0 },
             };
           }
           acc[empId].totalTransactions++;
           acc[empId].totalAmount += transaction.amount;
           acc[empId].uniqueUsers.add(transaction.user_id);
-          acc[empId].statusCounts[transaction.status]++;
+          acc[empId].statusCounts[transaction.status] = (acc[empId].statusCounts[transaction.status] || 0) + 1;
           return acc;
         }, {});
 
@@ -209,10 +211,10 @@ const Payout = () => {
                 >
                   <defs>
                     <linearGradient id="colorUv" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#6366f1" stopOpacity={0.8} />
+                      <stop offset="0%" stopColor="#13B8CF" stopOpacity={0.8} />
                       <stop
                         offset="100%"
-                        stopColor="#6366f1"
+                        stopColor="#13B8CF"
                         stopOpacity={0.2}
                       />
                     </linearGradient>
@@ -220,19 +222,19 @@ const Payout = () => {
                   <XAxis
                     dataKey="name"
                     tick={{ fill: "#6b7280" }}
-                    axisLine={{ stroke: "#e5e7eb" }}
-                    tickLine={{ stroke: "#e5e7eb" }}
+                    axisLine={{ stroke: "#E7E4DD" }}
+                    tickLine={{ stroke: "#E7E4DD" }}
                   />
                   <YAxis
                     tickFormatter={(value) => `₹${value / 1000}`}
                     tick={{ fill: "#6b7280" }}
-                    axisLine={{ stroke: "#e5e7eb" }}
-                    tickLine={{ stroke: "#e5e7eb" }}
+                    axisLine={{ stroke: "#E7E4DD" }}
+                    tickLine={{ stroke: "#E7E4DD" }}
                   />
                   <Tooltip
                     contentStyle={{
                       background: "#fff",
-                      border: "1px solid #e5e7eb",
+                      border: "1px solid #E7E4DD",
                       borderRadius: "8px",
                       boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
                     }}
@@ -344,7 +346,7 @@ const Payout = () => {
           <button
             onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
             disabled={currentPage === 1}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="px-4 py-2 bg-ink text-white rounded-lg hover:bg-ink/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             Prev
           </button>
@@ -356,7 +358,7 @@ const Payout = () => {
               setCurrentPage((prev) => Math.min(totalPages, prev + 1))
             }
             disabled={currentPage === totalPages}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="px-4 py-2 bg-ink text-white rounded-lg hover:bg-ink/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             Next
           </button>

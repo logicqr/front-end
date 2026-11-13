@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import { SITE, PRICING, FIRST_MONTH, MONTHLY, ANNUAL, ANNUAL_PER_MONTH } from '../../data/site'
 import { IoChevronBackCircleOutline } from "react-icons/io5";
 import { useNavigate } from "react-router-dom";
 
@@ -54,7 +55,7 @@ const Terms = () => {
                   <h1 className='text-3xl font-bold text-gray-800'>Terms of Service</h1>
                   <div className='w-16 h-1 bg-blue-500 rounded-full' />
                   <p className='text-gray-600 leading-relaxed'>
-                    Welcome to our QR Code Solution service. By purchasing our 6-month valid product, you agree to these terms governing your access and usage of our QR scanning system.
+                    Welcome to our QR Code Solution service. By signing up for LogicQR, you agree to these terms governing your access and usage of our QR scanning system and the recurring subscription that pays for it.
                   </p>
                 </div>
 
@@ -64,18 +65,36 @@ const Terms = () => {
                   </ul>
                 </Section>
 
-                <Section title="Payment & Access">
+                <Section title="Payment, billing & access">
                   <ul className='space-y-3 text-gray-600 list-disc pl-6'>
-                    <li>Once you make a payment, you cannot cancel or get a refund.</li>
-                    <li>After payment, you will receive access to your dashboard and QR code.</li>
+                    <li>You pay {FIRST_MONTH} for your first {PRICING.trialDays} days. After that your chosen plan renews automatically: {MONTHLY} per month, or {ANNUAL} once a year ({ANNUAL_PER_MONTH} per month).</li>
+                    <li>By completing checkout you authorise us, through Razorpay, to collect each renewal from the payment method you set up, until you cancel.</li>
+                    <li>We email a receipt for every payment and a reminder three days before each renewal.</li>
+                    <li>After your first payment you receive access to your dashboard and QR code straight away.</li>
+                    <li>You can switch from monthly to yearly billing from Account settings at any time.</li>
+                  </ul>
+                </Section>
+
+                <Section title="Cancelling">
+                  <ul className='space-y-3 text-gray-600 list-disc pl-6'>
+                    <li>You can cancel at any time from Account settings. No email or phone call is needed.</li>
+                    <li>Cancelling stops all future charges. Your review page stays live until the end of the period you have already paid for.</li>
+                    <li>Your existing feedback remains in your dashboard, and you can restart at any time.</li>
+                  </ul>
+                </Section>
+
+                <Section title="Prices">
+                  <ul className='space-y-3 text-gray-600 list-disc pl-6'>
+                    <li>All prices are in Indian rupees and include GST where applicable.</li>
+                    <li>If we raise our prices, existing subscriptions stay on the price they signed up at. A new price applies only to new signups.</li>
                   </ul>
                 </Section>
 
                 <Section title="Reviews & Feedback">
                   <ul className='space-y-3 text-gray-600 list-disc pl-6'>
                     <li>We truly value your feedback! Your experience helps businesses grow and improve.</li>
-                    <li>If you had a great experience, we{`’`}ll share your positive review online to help others learn about the business.</li>
-                    <li>If you have any concerns, your feedback will be privately shared with the business through their dashboard, allowing them to improve. We will carefully review your feedback and make necessary corrections as soon as possible.</li>
+                    <li>When you rate a business you may be offered a link to post your review publicly on Google, and a private box to tell the business directly. What you write privately goes to the business through their dashboard and is not published by us.</li>
+                    <li>We do not edit, write or remove reviews on Google. What appears there is between you and Google.</li>
                     <li>Your honest review helps us enhance our services and create a better experience for everyone!</li>
                   </ul>
                 </Section>
@@ -140,22 +159,31 @@ const Terms = () => {
                   <h1 className='text-3xl font-bold text-gray-800'>Purchase Policy</h1>
                   <div className='w-16 h-1 bg-blue-500 rounded-full' />
                   <p className='text-gray-600 leading-relaxed'>
-                    Our 6-month service package comes with strict no-refund policy to maintain service quality, with exceptions only for technical failures.
+                    You can cancel at any time and you will not be charged again. We do not pro-rate part-months, but we will refund a payment when the service failed you.
                   </p>
                 </div>
 
-                <Section title="No Refunds & No Cancellations">
+                <Section title="Cancelling">
                   <ul className='space-y-3 text-gray-600 list-disc pl-6'>
-                    <li>Once payment is made, you cannot cancel or get a refund.</li>
-                    <li>The dashboard and QR code will be provided immediately after payment.</li>
+                    <li>Cancel from Account settings whenever you like. Future charges stop immediately.</li>
+                    <li>Your page keeps working until the end of the period you have already paid for, so there is no part-month left over to refund.</li>
+                    <li>The dashboard and QR code are provided immediately after your first payment.</li>
+                  </ul>
+                </Section>
+
+                <Section title="When we will refund you">
+                  <ul className='space-y-3 text-gray-600 list-disc pl-6'>
+                    <li>A payment was taken in error, or taken twice.</li>
+                    <li>You were charged after cancelling.</li>
+                    <li>Your page was unavailable or your code did not work because of a fault on our side, and we could not fix it promptly.</li>
+                    <li>Email {SITE.email} with the email address you signed up with and we will look into it.</li>
                   </ul>
                 </Section>
 
                 <Section title="Payment Errors & Refunds">
                   <ul className='space-y-3 text-gray-600 list-disc pl-6'>
                     <li>If there is any error in payment, it will be verified and rectified as soon as possible.</li>
-                    <li>If a valid issue is found, the refund will be processed within 5 to 8 business days.
-                    </li>
+                    <li>If a valid issue is found, the refund will be processed within 5 to 8 business days to your original payment method.</li>
                   </ul>
                 </Section>
 

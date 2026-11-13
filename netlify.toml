@@ -1,4 +1,102 @@
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "22"
+
+# ---------------------------------------------------------------------------
+# Canonical host
+# ---------------------------------------------------------------------------
+# Every canonical tag and the sitemap say www.logicqr.com. The bare domain used
+# to serve the same pages, so the two hosts competed for the same rankings.
 [[redirects]]
-from = "/*"
-to = "index.html"
-status = 200
+  from = "https://logicqr.com/*"
+  to = "https://www.logicqr.com/:splat"
+  status = 301
+  force = true
+
+# Routes that moved.
+[[redirects]]
+  from = "/terms"
+  to = "/terms-condition"
+  status = 301
+
+[[redirects]]
+  from = "/blogs/*"
+  to = "/blog/:splat"
+  status = 301
+
+# SPA fallback. Last, so the redirects above win.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+# ---------------------------------------------------------------------------
+# Security headers
+# ---------------------------------------------------------------------------
+# There were none. The app was clickjackable and, with tokens in
+# sessionStorage, had no CSP backstop against script injection.
+[[headers]]
+  for = "/*"
+  [headers.values]
+    # Only this origin may frame the site.
+    X-Frame-Options = "SAMEORIGIN"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Strict-Transport-Security = "max-age=31536000; includeSubDomains; preload"
+    # Device APIs this app has no use for.
+    Permissions-Policy = "camera=(), microphone=(), geolocation=(), payment=(self \"https://checkout.razorpay.com\"), usb=()"
+    Cross-Origin-Opener-Policy = "same-origin-allow-popups"
+    X-DNS-Prefetch-Control = "on"
+
+    # Content-Security-Policy.
+    #
+    # The allowances and why each is needed:
+    #   checkout.razorpay.com / *.razorpay.com — the payment window, which runs
+    #     in an iframe and needs script, frame and connect
+    #   googletagmanager.com / google-analytics.com — analytics
+    #   ik.imagekit.io, yt3.googleusercontent.com — images used on the site
+    #   'unsafe-inline' on style-src — React inline styles and the CSS-in-JSX
+    #     this app uses; removing it needs a nonce pipeline, which Netlify's
+    #     static hosting does not provide
+    #   the API origin on connect-src — this is the one that matters, because it
+    #     is what stops injected script exfiltrating to somewhere else
+    Content-Security-Policy = '''
+      default-src 'self';
+      script-src 'self' 'unsafe-inline' https://checkout.razorpay.com https://*.razorpay.com https://www.googletagmanager.com https://www.google-analytics.com;
+      style-src 'self' 'unsafe-inline';
+      font-src 'self' data:;
+      img-src 'self' data: blob: https://ik.imagekit.io https://yt3.googleusercontent.com https://*.razorpay.com https://www.google-analytics.com https://www.googletagmanager.com;
+      connect-src 'self' https://back-end-ivnr.onrender.com https://api.logicqr.com https://*.razorpay.com https://lumberjack.razorpay.com https://www.google-analytics.com https://region1.google-analytics.com;
+      frame-src https://*.razorpay.com https://api.razorpay.com;
+      form-action 'self';
+      base-uri 'self';
+      object-src 'none';
+      frame-ancestors 'self';
+      upgrade-insecure-requests
+    '''
+
+# Hashed asset filenames, so they can be cached indefinitely.
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+# The shell must not be cached, or a deploy does not reach anyone.
+[[headers]]
+  for = "/index.html"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+[[headers]]
+  for = "/sitemap.xml"
+  [headers.values]
+    Cache-Control = "public, max-age=3600"
+    Content-Type = "application/xml; charset=utf-8"
+
+[[headers]]
+  for = "/robots.txt"
+  [headers.values]
+    Cache-Control = "public, max-age=3600"

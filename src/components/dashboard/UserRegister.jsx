@@ -1,671 +1,727 @@
-import React, { useState, useEffect } from "react";
-import { MdKeyboardArrowLeft, MdKeyboardArrowRight } from "react-icons/md";
-import { FaRegBuilding } from "react-icons/fa";
-import {
-  FiUser,
-  FiMail,
-  FiPhone,
-  FiBriefcase,
-  FiLock,
-  FiMapPin,
-} from "react-icons/fi";
-import { useNavigate } from "react-router-dom";
-import { ToastContainer, toast } from "react-toastify";
-import axiosInstance from "../auth/axios";
-import axios from "axios";
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { Helmet } from 'react-helmet-async';
+import AuthShell, { AuthAside } from '../auth/AuthShell';
+import { http, RAZORPAY_KEY } from '../../lib/api';
+import { useAuth } from '../../lib/auth';
+import { attributionPayload, trackClick } from '../../lib/tracking';
+import { PRICING, derivePricing, money, INCLUDED } from '../../data/site';
 
-function Register() {
-  const carouselContent = [
-    {
-      image: "https://ik.imagekit.io/pds5n5l6d3/LogicQR/Dashboard%20section/photo-1454165804606-c3d57bc86b40_avif.heif?updatedAt=1741522515455",
-      title: "Boost Online Visibility & Search Rankings",
-      subtitle: "SEO-Optimized Business Solutions",
-      description: "Improve search rankings using Filter negative reviews, highlight positive feedback, and improve SEO rankings with an automated dashboard that enhances your brand reputation.",
-    },
-    {
-      image: "https://ik.imagekit.io/pds5n5l6d3/LogicQR/Dashboard%20section/photo-1556745757-8d76bdb6984b_avif.heif?updatedAt=1741522515441",
-      title: "Smart Reputation Control",
-      subtitle: "Automated Review Monitoring & Response",
-      description: "Monitor and manage reviews in real time, suppress negative comments, and maintain a 5-star rating to build trust and boost search rankings.",
-    },
-    {
-      image: "https://ik.imagekit.io/pds5n5l6d3/LogicQR/Dashboard%20section/photo-1552581234-26160f608093_avif.heif?updatedAt=1741522515434",
-      title: "Customer-Driven Business Growth",
-      subtitle: "Feedback Analytics & Service Optimization",
-      description: "Use to filter and respond to reviews, suppress harmful content, and increase credibility, ensuring higher search rankings and customer confidence.",
-    },
-  ]
+/**
+ * Signup and checkout.
+ *
+ * The flow, and why it is shaped this way:
+ *
+ *   1. collect details
+ *   2. POST /checkout/subscription — parks the signup, creates the Razorpay
+ *      subscription, returns its id
+ *   3. Razorpay checkout authorises the mandate and charges the intro month
+ *   4. POST /checkout/confirm — the server verifies the signature, creates the
+ *      account, and returns a session
+ *
+ * Step 4 is the important one. The old version showed its success popup from
+ * Razorpay's browser callback, which fires on payment rather than on the
+ * account existing — so any webhook failure meant money taken, no account, and
+ * a customer who had been told it worked. Success here is only claimed once the
+ * server confirms the account. If the confirm call cannot complete, the page
+ * polls `/checkout/status` instead of guessing.
+ */
 
-  const navigate = useNavigate();
-  const [currentSlide, setCurrentSlide] = useState(0);
-  const [currentStep, setCurrentStep] = useState(1);
-  const [errorMessage, setErrorMessage] = useState("");
-  const [successPopUp,setSuccessPopUp] = useState(false)
-  const [loading, setLoading] = useState(false);
+const RAZORPAY_SRC = 'https://checkout.razorpay.com/v1/checkout.js';
 
-  const [formData, setFormData] = useState({
-    fullName: "",
-    email: "",
-    phone: "",
-    businessName: "",
-    businessType: "",
-    placeId: "",
-    password: "",
-    confirmPassword: "",
-    referralCode: "",
+/** Loads the checkout script on demand rather than on every page of the site. */
+function loadRazorpay() {
+  if (window.Razorpay) return Promise.resolve(true);
+
+  return new Promise((resolve) => {
+    const existing = document.querySelector(`script[src="${RAZORPAY_SRC}"]`);
+    if (existing) {
+      existing.addEventListener('load', () => resolve(true));
+      existing.addEventListener('error', () => resolve(false));
+      return;
+    }
+    const script = document.createElement('script');
+    script.src = RAZORPAY_SRC;
+    script.async = true;
+    script.onload = () => resolve(true);
+    script.onerror = () => resolve(false);
+    document.body.appendChild(script);
   });
-  const [referralBox, setReferralBox] = useState(false);
+}
 
-  // Auto-slide effect
+const BUSINESS_TYPES = [
+  'Café or coffee shop',
+  'Restaurant',
+  'Takeaway or cloud kitchen',
+  'Bakery or sweet shop',
+  'Salon, spa or barber',
+  'Dental clinic',
+  'Medical clinic or diagnostics',
+  'Gym or fitness studio',
+  'Car or bike workshop',
+  'Retail shop',
+  'Hotel or guest house',
+  'Tuition or coaching centre',
+  'Other service business',
+];
+
+const EMPTY = {
+  fullName: '',
+  email: '',
+  phone: '',
+  businessName: '',
+  businessType: '',
+  placeId: '',
+  password: '',
+  confirmPassword: '',
+  referralCode: '',
+};
+
+export default function UserRegister() {
+  const navigate = useNavigate();
+  const [params] = useSearchParams();
+  const { adoptSession } = useAuth();
+
+  const [cycle, setCycle] = useState(params.get('cycle') === 'annual' ? 'annual' : 'monthly');
+  const [p, setP] = useState(() => derivePricing());
+  const [step, setStep] = useState(1);
+  const [form, setForm] = useState(EMPTY);
+  const [fieldErrors, setFieldErrors] = useState({});
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [phase, setPhase] = useState('form'); // form | paying | verifying | waiting | done
+  const [account, setAccount] = useState(null);
+  const subscriptionIdRef = useRef(null);
+  const pollRef = useRef(null);
+
+  /* ---------------------------------------------------- live pricing */
   useEffect(() => {
-    const interval = setInterval(() => {
-      setCurrentSlide((prev) =>
-        prev === carouselContent.length - 1 ? 0 : prev + 1
-      );
-    }, 3000);
-    return () => clearInterval(interval);
+    let live = true;
+    http
+      .get('/pricing')
+      .then((server) => {
+        if (!live) return;
+        setP(
+          derivePricing({
+            ...PRICING,
+            firstMonthPaise: server.firstMonthPaise,
+            monthlyPaise: server.monthlyPaise,
+            annualPaise: server.annualPaise,
+            trialDays: server.trialDays,
+            annualAvailable: server.annualAvailable,
+          })
+        );
+      })
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
   }, []);
 
-  // console.log("jaromjery", formData);
+  useEffect(() => () => clearInterval(pollRef.current), []);
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData({ ...formData, [name]: name === "email" ? value.toLowerCase() : value });
-  };  
-
-  const nextStep = () => {
-    if (
-      currentStep === 1 &&
-      (!formData.fullName || !formData.email || !formData.phone)
-    ) {
-      setErrorMessage("Please fill in all fields to proceed.");
-      return;
-    }
-    if (
-      currentStep === 2 &&
-      (!formData.businessName || !formData.businessType || !formData.placeId)
-    ) {
-      setErrorMessage("Please fill in all fields to proceed.");
-      return;
-    }
-    setErrorMessage("");
-    setCurrentStep((prevStep) => prevStep + 1);
+  const set = (field) => (e) => {
+    const value = field === 'email' ? e.target.value.toLowerCase() : e.target.value;
+    setForm((f) => ({ ...f, [field]: value }));
+    setFieldErrors((prev) => (prev[field] ? { ...prev, [field]: undefined } : prev));
+    setError('');
   };
 
-  const prevStep = () => {
-    setErrorMessage("");
-    setCurrentStep((prevStep) => prevStep - 1);
-  };
+  /* ---------------------------------------------------- validation */
 
-  const handleCheck = async () => {
-    const email = formData.email;
-    if (!email) {
-      setErrorMessage("Please provide all fields");
-      toast.error("fill the all the field!");
-      return;
+  const validateStep = () => {
+    const errs = {};
+
+    if (step === 1) {
+      if (form.fullName.trim().length < 2) errs.fullName = 'Enter your full name.';
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) errs.email = 'Enter a valid email address.';
+      if (!/^[6-9]\d{9}$/.test(form.phone)) errs.phone = 'Enter a valid 10-digit mobile number.';
     }
-  setLoading(true)
-    try {
-      const emailResponse = await axiosInstance.post(
-        "/usercheck",
-        { email }
-      );
-      // console.log(emailResponse)
-      if (emailResponse.data.message === "Already a User") {
-        setErrorMessage("Email Already Used");
-      } else if (emailResponse.data.message === "You can register") {
-        setErrorMessage("");
-        nextStep();
+
+    if (step === 2) {
+      if (form.businessName.trim().length < 2) errs.businessName = 'Enter your business name.';
+      if (!form.businessType) errs.businessType = 'Pick the closest one.';
+      if (form.placeId.trim().length < 5) {
+        errs.placeId = 'We need your Google Place ID so reviews reach the right listing.';
       }
-    } catch (error) {
-      console.error("Error checking email:", error);
-      setErrorMessage("An error occurred. Please try again later.");
     }
-    setLoading(false)
+
+    if (step === 3) {
+      if (form.password.length < 8) errs.password = 'Use at least 8 characters.';
+      if (form.password !== form.confirmPassword) errs.confirmPassword = 'Those two do not match.';
+      if (!form.referralCode.trim()) errs.referralCode = 'Enter a referral code, or how you found us.';
+    }
+
+    setFieldErrors(errs);
+    return Object.keys(errs).length === 0;
   };
 
-  const handleRegister = async () => {
-    setLoading(true);
-    setErrorMessage("");
-    const {
-      password,
-      confirmPassword,
-      fullName,
-      phone,
-      businessName,
-      businessType,
-      referralCode,
-    } = formData;
+  const next = async () => {
+    if (!validateStep()) return;
 
-    if (
-      !fullName ||
-      !phone ||
-      !businessName ||
-      !businessType ||
-      !password ||
-      !confirmPassword ||
-      !referralCode
-    ) {
-      setErrorMessage("All fields are required.");
-      setLoading(false);
-      return;
+    // Catch a duplicate email before they reach the payment screen.
+    if (step === 1) {
+      setBusy(true);
+      try {
+        await http.post('/usercheck', { email: form.email });
+      } catch (err) {
+        setBusy(false);
+        setError(err.message);
+        return;
+      }
+      setBusy(false);
     }
 
-    if (password.length < 8) {
-      setErrorMessage("Password must be at least 8 characters long!");
-      setLoading(false);
-      return;
+    if (step === 3) {
+      setBusy(true);
+      try {
+        const res = await http.post('/referral-check', { referralCode: form.referralCode.trim() });
+        if (!res.valid) {
+          setFieldErrors({ referralCode: 'That code is not valid. Try "google" if you found us by searching.' });
+          setBusy(false);
+          return;
+        }
+      } catch (err) {
+        setError(err.message);
+        setBusy(false);
+        return;
+      }
+      setBusy(false);
     }
 
-    if (password !== confirmPassword) {
-      setErrorMessage("Passwords do not match!");
-      setLoading(false);
-      return;
-    }
+    trackClick('signup_step_completed', { step, cycle });
+    setStep((s) => s + 1);
+  };
 
-    // console.log(formData)
+  /* ---------------------------------------------------- polling fallback */
+
+  const startPolling = useCallback((subscriptionId) => {
+    setPhase('waiting');
+    let attempts = 0;
+
+    pollRef.current = setInterval(async () => {
+      attempts += 1;
+      try {
+        const res = await http.get(`/checkout/status/${subscriptionId}`);
+        if (res.state === 'READY') {
+          clearInterval(pollRef.current);
+          setAccount(res.user);
+          setPhase('done');
+          trackClick('signup_completed_via_poll', { cycle });
+        } else if (res.state === 'STALLED' || attempts > 20) {
+          clearInterval(pollRef.current);
+          setPhase('stalled');
+        }
+      } catch {
+        if (attempts > 20) {
+          clearInterval(pollRef.current);
+          setPhase('stalled');
+        }
+      }
+    }, 3000);
+  }, [cycle]);
+
+  /* ---------------------------------------------------- checkout */
+
+  const pay = async () => {
+    setError('');
+    setBusy(true);
+    trackClick('signup_checkout_opened', { cycle });
 
     try {
+      const ready = await loadRazorpay();
+      if (!ready) throw new Error('Could not load the payment window. Check your connection and try again.');
 
+      const start = await http.post('/checkout/subscription', {
+        fullName: form.fullName.trim(),
+        email: form.email,
+        phone: form.phone,
+        businessName: form.businessName.trim(),
+        businessType: form.businessType,
+        placeId: form.placeId.trim(),
+        password: form.password,
+        referralCode: form.referralCode.trim(),
+        cycle,
+        attribution: attributionPayload(),
+      });
 
-      const referralResponse = await axiosInstance.post("/referral-check", { referralCode });
+      subscriptionIdRef.current = start.subscriptionId;
+      setPhase('paying');
 
-        if (referralResponse.data.message === "Invalid referral code") {
-            setErrorMessage("Invalid referral code. Please enter a valid one.");
-            setLoading(false);
-            return;
-        }
-        const { confirmPassword, ...filteredFormData } = formData;
-        const response = await axiosInstance.post(
-            "/create-order",
-            filteredFormData
-        );
-    
-        // console.log(response);
-    
-        if (response.status === 200) {
-            // console.log(response.data.order.id);
-            // console.log(response.data.order.amount);
-    
-            var options = {
-                key: "rzp_live_R4krQLCHamePO8", // Use environment variables for security
-                amount: response.data.order.amount,
-                currency: "INR",
-                order_id: response.data.order.id,
-                handler: async function (paymentResponse) {
-                  const { razorpay_payment_id, razorpay_order_id, razorpay_signature } = paymentResponse;
+      const rzp = new window.Razorpay({
+        key: start.keyId || RAZORPAY_KEY,
+        subscription_id: start.subscriptionId,
+        name: 'LogicQR',
+        description: `${money(p.firstMonthPaise)} first month, then ${
+          cycle === 'annual' ? `${money(p.annualPaise)}/year` : `${money(p.monthlyPaise)}/month`
+        }`,
+        prefill: start.prefill,
+        theme: { color: '#13B8CF' },
 
-                  if (razorpay_payment_id && razorpay_order_id && razorpay_signature) {
-                      // console.log("Payment Successful:");
-                      // console.log("Payment ID:", razorpay_payment_id);
-                      // console.log("Order ID:", razorpay_order_id);
-                      // console.log("Signature:", razorpay_signature);
-                      setSuccessPopUp(true);
-                      setErrorMessage("");
-                  } else {
-                      console.error("Payment verification failed. Invalid response:", paymentResponse);
-                      setErrorMessage("Payment failed. Please try again.");
-                  }
-                },
-                prefill: {
-                    name: formData.name,
-                    email: formData.email,
-                    contact: formData.contact 
-                }
-            };
-    
-            var rzp1 = new window.Razorpay(options);
-            rzp1.open();
-        }
-    } catch (error) {
-        console.error("Error during registration:", error);
-        setErrorMessage("Failed to register. Please try again.");
+        handler: async (response) => {
+          setPhase('verifying');
+          try {
+            const confirmed = await http.post('/checkout/confirm', {
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_subscription_id: response.razorpay_subscription_id,
+              razorpay_signature: response.razorpay_signature,
+            });
+
+            // Signed in as part of the confirm, so no second trip through login.
+            await adoptSession({ token: confirmed.token, user: confirmed.user });
+            setAccount(confirmed.user);
+            setPhase('done');
+            trackClick('signup_completed', { cycle });
+          } catch (err) {
+            // Payment went through but we could not finish here. The webhook is
+            // the other path to the same place, so wait for it rather than
+            // telling them it worked or that it failed.
+            trackClick('signup_confirm_failed', { cycle, code: err.code || 'unknown' });
+            setError(err.message);
+            startPolling(subscriptionIdRef.current);
+          }
+        },
+
+        modal: {
+          // Closing the window used to leave a stranded signup whose email
+          // could never be used again.
+          ondismiss: () => {
+            setPhase('form');
+            setBusy(false);
+            trackClick('signup_checkout_dismissed', { cycle });
+            setError('Payment window closed — nothing has been charged. You can pick up where you left off.');
+          },
+        },
+      });
+
+      rzp.on('payment.failed', (resp) => {
+        setPhase('form');
+        setBusy(false);
+        setError(resp?.error?.description || 'That payment did not go through. Nothing has been charged.');
+        trackClick('signup_payment_failed', { cycle });
+      });
+
+      rzp.open();
+    } catch (err) {
+      setPhase('form');
+      setError(err.message || 'Something went wrong starting the payment.');
+    } finally {
+      setBusy(false);
     }
-    setLoading(false);
-}
-    
-
-  const handlePrev = () => {
-    setCurrentSlide((prev) =>
-      prev === 0 ? carouselContent.length - 1 : prev - 1
-    );
   };
 
-  const handleNext = () => {
-    setCurrentSlide((prev) =>
-      prev === carouselContent.length - 1 ? 0 : prev + 1
-    );
-  };
+  /* ---------------------------------------------------- outcome screens */
 
-  const { image, title, description } = carouselContent[currentSlide];
+  if (phase === 'done' && account) {
+    return (
+      <>
+        <Helmet>
+          <title>You&apos;re all set — LogicQR</title>
+          <meta name="robots" content="noindex" />
+        </Helmet>
+        <AuthShell
+          title="You're all set"
+          subtitle={`${account.businessName} is ready to start collecting reviews.`}
+          aside={
+            <AuthAside
+              heading="Next: print the code."
+              points={[
+                'Download the table card from your dashboard',
+                'Put it where customers pay',
+                'Feedback starts arriving the same day',
+              ]}
+            />
+          }
+        >
+          <p className="notice good" role="status">
+            Payment received. We have emailed your receipt to {account.email}.
+          </p>
+
+          <ul className="signup-recap">
+            <li>
+              <span>Paid today</span>
+              <b>{money(p.firstMonthPaise)}</b>
+            </li>
+            <li>
+              <span>Then</span>
+              <b>
+                {cycle === 'annual'
+                  ? `${money(p.annualPaise)}/year`
+                  : `${money(p.monthlyPaise)}/month`}
+              </b>
+            </li>
+            <li>
+              <span>Your review link</span>
+              <b className="signup-mono">/review/{account.user_id}</b>
+            </li>
+          </ul>
+
+          <button
+            type="button"
+            className="auth-submit"
+            onClick={() => navigate(`/dashboard/${account.user_id}`, { replace: true })}
+          >
+            Open my dashboard
+          </button>
+        </AuthShell>
+      </>
+    );
+  }
+
+  if (phase === 'verifying' || phase === 'waiting') {
+    return (
+      <AuthShell
+        title={phase === 'verifying' ? 'Confirming your payment' : 'Setting up your account'}
+        subtitle="This takes a few seconds. Please do not close this page."
+        aside={<AuthAside heading="Almost there." points={['Payment confirmed', 'Building your dashboard', 'Generating your QR code']} />}
+      >
+        <div className="signup-wait" role="status" aria-live="polite">
+          <span className="signup-spin" />
+          <p>
+            {phase === 'verifying'
+              ? 'Checking the payment with our server.'
+              : 'Your payment went through. We are finishing your account now.'}
+          </p>
+        </div>
+      </AuthShell>
+    );
+  }
+
+  if (phase === 'stalled') {
+    return (
+      <AuthShell
+        title="Your payment went through"
+        subtitle="We could not finish building your account automatically."
+        aside={<AuthAside heading="We will sort this out." points={['Your payment is safe', 'Nothing is lost', 'Usually fixed within the hour']} />}
+      >
+        <p className="notice bad">
+          Your payment was taken but the account setup did not complete. This is on us, not you — nothing has been
+          lost, and no further charge will be made.
+        </p>
+        <p className="auth-sub" style={{ marginTop: 16 }}>
+          Email <strong>thelogicqr@gmail.com</strong> quoting the email address you used ({form.email}) and we will
+          have it working shortly. If you would rather not wait, reply-all to your payment receipt and we will see it
+          either way.
+        </p>
+        <Link className="auth-submit" to="/" style={{ display: 'grid', placeItems: 'center', textDecoration: 'none' }}>
+          Back to the site
+        </Link>
+      </AuthShell>
+    );
+  }
+
+  /* ---------------------------------------------------- form */
+
+  const annual = cycle === 'annual';
+  const standing = annual ? `${money(p.annualPerMonthPaise)}/month, billed yearly` : `${money(p.monthlyPaise)}/month`;
+
+  const aside = (
+    <AuthAside
+      heading={`${money(p.firstMonthPaise)} for your first month.`}
+      points={INCLUDED.slice(0, 4)}
+      note={`Then ${standing}. Cancel from your dashboard any time — your page stays live until the end of the period you have paid for.`}
+    />
+  );
 
   return (
-    <div className="min-h-screen flex flex-col md:justify-center bg-white md:bg-gray-50">
-      <ToastContainer position="top-center" autoClose={3000} />
-      <div className="container mx-auto md:px-4 md:py-8">
-        <div className="max-w-7xl mx-auto bg-white md:rounded-2xl md:shadow overflow-hidden">
-          <div className="grid grid-cols-1 lg:grid-cols-2 min-h-[700px]">
-            {/* Enhanced Carousel Section */}
-            <div className="relative  lg:block">
-              <div
-                className="absolute inset-0 bg-gradient-to-r from-black/60 to-black/30"
-                aria-hidden="true"
-              />
-              <div
-                className="h-full w-full bg-cover bg-center transition-all duration-500"
-                style={{
-                  backgroundImage: `url(${carouselContent[currentSlide].image})`,
-                }}
-              >
-                <div className="relative md:h-full flex flex-col justify-between p-8 h-80">
-                  {/* Carousel Navigation Buttons */}
-                  <div className="absolute hidden inset-0 md:flex items-center justify-between px-4">
-                    <button
-                      onClick={handlePrev}
-                      className="p-2 rounded-full bg-white/20 hover:bg-white/30 transition-colors duration-200"
-                    >
-                      <MdKeyboardArrowLeft className="text-3xl text-white" />
-                    </button>
-                    <button
-                      onClick={handleNext}
-                      className="p-2 rounded-full bg-white/20 hover:bg-white/30 transition-colors duration-200"
-                    >
-                      <MdKeyboardArrowRight className="text-3xl text-white" />
-                    </button>
-                  </div>
+    <>
+      <Helmet>
+        <title>Start for {money(p.firstMonthPaise)} — LogicQR</title>
+        <meta
+          name="description"
+          content={`Set up your LogicQR review page. ${money(p.firstMonthPaise)} for the first month, then ${standing}.`}
+        />
+      </Helmet>
 
-                  {/* Carousel Content */}
-                  <div className="relative md:pt-8 text-center">
-                    <h2 className="text-2xl md:text-4xl font-bold text-white md:mb-4 leading-tight">
-                      {carouselContent[currentSlide].title}
-                    </h2>
-                    <p className="text-base md:text-lg text-white/90 mb-6">
-                      {carouselContent[currentSlide].subtitle}
-                    </p>
-                  </div>
-
-                  <div className="relative md:mb-10 text-center">
-                    <p className="text-white/85 text-sm md:text-lg leading-relaxed mb-4 md:mb-8">
-                      {carouselContent[currentSlide].description}
-                    </p>
-                    <div className="flex justify-center space-x-2">
-                      {carouselContent.map((_, index) => (
-                        <button
-                          key={index}
-                          className={`w-2 h-2 md:w-2.5 md:h-2.5 rounded-full transition-all duration-300 ${
-                            currentSlide === index
-                              ? "bg-white md:w-6 w-4"
-                              : "bg-white/50"
-                          }`}
-                          onClick={() => setCurrentSlide(index)}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Enhanced Registration Section */}
-            <div className="p-6 lg:p-12 ">
-              <div className="max-w-md mx-auto">
-                <div className="text-center mb-8">
-                  <div className="inline-block mb-4 md:mb-6 transform hover:scale-105 transition-transform duration-300">
-                    <div className=" hidden w-16 h-16 md:w-20 md:h-20 bg-indigo-100 rounded-3xl md:flex items-center justify-center shadow-lg">
-                      <img
-                        src="https://ik.imagekit.io/psltlu4ds/Review/Produce-Ui.png?updatedAt=1736424836340"
-                        alt="Logo"
-                        className="w-10 h-10 md:w-12 md:h-12"
-                      />
-                    </div>
-                  </div>
-                  <h1 className="text-3xl md:text-4xl font-extrabold text-gray-900 mb-3">
-                    {currentStep === 1 && "Get Started"}
-                    {currentStep === 2 && "Business Details"}
-                    {currentStep === 3 && "Secure Account"}
-                  </h1>
-                  <div className="flex items-center justify-center space-x-2">
-                    {[1, 2, 3].map((step) => (
-                      <div
-                        key={step}
-                        className={`h-1 md:h-1.5 rounded-full transition-all duration-300 ${
-                          currentStep >= step
-                            ? "bg-gradient-to-r from-[#313860] to-[#151928] w-6 md:w-8"
-                            : "bg-gray-200 w-4"
-                        }`}
-                      />
-                    ))}
-                  </div>
-                </div>
-
-                {/* Error Message */}
-                {errorMessage && (
-                  <div className="mb-4 text-center md:mb-6 p-3 md:p-4 bg-red-50 rounded-lg">
-                    <span className="text-red-600 text-sm">{errorMessage}</span>
-                  </div>
-                )}
-
-                {currentStep === 1 && (
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Full Name
-                      </label>
-                      <div className="relative">
-                        <FiUser className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                        <input
-                          type="text"
-                          name="fullName"
-                          value={formData.fullName}
-                          onChange={handleChange}
-                          className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                          placeholder="John Doe"
-                        />
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Email Address
-                      </label>
-                      <div className="relative">
-                        <FiMail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                        <input
-                          type="email"
-                          name="email"
-                          value={formData.email}
-                          onChange={handleChange}
-                          className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                          placeholder="john@example.com"
-                          required
-                        />
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Phone Number
-                      </label>
-                      <div className="relative">
-                        <FiPhone className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                        <input
-                          type="tel"
-                          name="phone"
-                          value={formData.phone}
-                          onChange={handleChange}
-                          className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                          placeholder="+91 9098976900"
-                        />
-                      </div>
-                    </div>
-
-                    <button
-                      onClick={handleCheck}
-                      className="w-full bg-gradient-to-r from-[#313860] to-[#151928] text-white text-sm md:text-base py-3 px-6 rounded-lg transition-colors duration-300 font-medium"
-                    >
-                      {loading ? "Please Wait..." : "Create Account"}
-                    </button>
-                  </div>
-                )}
-
-                {currentStep === 2 && (
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Business Name
-                      </label>
-                      <div className="relative">
-                        <FiBriefcase className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                        <input
-                          type="text"
-                          name="businessName"
-                          value={formData.businessName}
-                          onChange={handleChange}
-                          className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                          placeholder="Acme Corp"
-                        />
-                      </div>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Business Type
-                      </label>
-                      <div className="relative">
-                        <FaRegBuilding className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                        <input
-                          type="text"
-                          name="businessType"
-                          value={formData.businessType}
-                          onChange={handleChange}
-                          className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                          placeholder="Retail"
-                        />
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Place ID
-                      </label>
-                      <div className="relative">
-                        <FiMapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                        <input
-                          type="text"
-                          name="placeId"
-                          value={formData.placeId}
-                          onChange={handleChange}
-                          className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                          placeholder="Enter Google Place ID"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="flex gap-4">
-                      <button
-                        onClick={prevStep}
-                        className="w-1/2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm md:text-base py-3 px-6 rounded-lg transition-colors duration-300 font-medium"
-                      >
-                        Back
-                      </button>
-                      <button
-                        onClick={nextStep}
-                        className="w-1/2 bg-gradient-to-r from-[#313860] to-[#151928] text-sm md:text-base text-white py-3 px-6 rounded-lg transition-colors duration-300 font-medium"
-                      >
-                        Continue
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {currentStep === 3 && (
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Referral Source
-                      </label>
-                      <div className="relative">
-                        <select
-                          defaultValue={formData.referralCode} // Use defaultValue instead of value
-                          onChange={(e) => {
-                            const value = e.target.value;
-                            setFormData({
-                              ...formData,
-                              referralCode:
-                                value === "Referred Person" ? "" : value,
-                            });
-                            setReferralBox(value === "Referred Person");
-                          }}
-                          className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 appearance-none bg-white"
-                        >
-                          <option value="">How Did You Hear About Us?</option>
-                          <option value="Instagram">Instagram</option>
-                          <option value="Facebook">Facebook</option>
-                          <option value="Google">Google</option>
-                          <option value="Referred Person">
-                            Referred by Friends
-                          </option>
-                        </select>
-
-                        <FiUser className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                      </div>
-                    </div>
-
-                    {referralBox && (
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Referral Code
-                        </label>
-                        <div className="relative">
-                          <FiUser className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                          <input
-                            type="text"
-                            name="referralCode"
-                            value={formData.referralCode}
-                            onChange={handleChange}
-                            className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                            placeholder="Enter referral code"
-                          />
-                        </div>
-                      </div>
-                    )}
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Create Password
-                      </label>
-                      <div className="relative">
-                        <FiLock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                        <input
-                          type="password"
-                          name="password"
-                          value={formData.password}
-                          onChange={handleChange}
-                          className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                          placeholder="••••••••"
-                        />
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Confirm Password
-                      </label>
-                      <div className="relative">
-                        <FiLock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                        <input
-                          type="password"
-                          name="confirmPassword"
-                          value={formData.confirmPassword}
-                          onChange={handleChange}
-                          className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                          placeholder="••••••••"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="flex gap-4">
-                      <button
-                        onClick={prevStep}
-                        disabled={loading}
-                        className="w-1/2 bg-gray-100 hover:bg-gray-200 text-gray-700 py-3 px-6 rounded-lg text-sm md:text-base transition-colors duration-300 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        Back
-                      </button>
-                      <button
-                        disabled={loading}
-                        onClick={handleRegister}
-                        className="w-1/2 bg-gradient-to-r from-[#313860] to-[#151928] text-white py-3 px-6 text-sm md:text-base rounded-lg transition-colors duration-300 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        {loading ? "Creating..." : "Create Account"}
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                <div className="mt-8 text-center text-sm text-gray-600">
-                  <p>
-                    Already have an account?{" "}
-                    <button
-                      onClick={() => navigate("/login")}
-                      className="text-indigo-600 hover:text-indigo-700 font-medium"
-                    >
-                      Sign in here
-                    </button>
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
+      <AuthShell
+        title={step === 4 ? 'Confirm and pay' : 'Start collecting reviews'}
+        subtitle={
+          step === 4
+            ? 'One payment now, then it runs by itself.'
+            : `Step ${step} of 3 · ${money(p.firstMonthPaise)} for your first month`
+        }
+        aside={aside}
+        footer={
+          <>
+            Already have an account?{' '}
+            <Link className="auth-link" to="/login">
+              Sign in
+            </Link>
+          </>
+        }
+      >
+        <div className="signup-steps" aria-hidden="true">
+          {[1, 2, 3, 4].map((n) => (
+            <span key={n} className={n <= step ? 'on' : undefined} />
+          ))}
         </div>
-      </div>
-      {successPopUp && (
- <div className="fixed inset-0 flex items-center justify-center bg-black/30 backdrop-blur-sm">
- <div className="bg-white p-8 rounded-xl shadow-xl w-[90%] max-w-md transition-all duration-200">
-   <div className="flex flex-col items-center space-y-5">
-     {/* Emoji Circle */}
-     <div className="relative bg-green-500/10 w-16 h-16 flex items-center justify-center rounded-full mb-4 shadow-sm group hover:shadow-md transition-shadow">
-  {/* Animated ping effect */}
-  <div className="absolute inset-0 rounded-full bg-green-100 animate-ping" />
-  
-  {/* Checkmark container */}
-  <div className="relative z-10 bg-gradient-to-br from-green-500 to-emerald-600 w-14 h-14 rounded-full flex items-center justify-center shadow-inner">
-    {/* Checkmark icon */}
-    <svg 
-      className="w-6 h-6 text-white transition-transform duration-300 group-hover:scale-110"
-      viewBox="0 0 24 24" 
-      fill="none" 
-      stroke="currentColor" 
-      strokeWidth="2"
-    >
-      <path 
-        strokeLinecap="round" 
-        strokeLinejoin="round" 
-        d="M5 13l4 4L19 7" 
-      />
-    </svg>
-  </div>
-</div>
 
-     {/* Text Content */}
-     <div className="text-center space-y-2">
-       <h2 className="text-2xl font-semibold text-gray-800">
-         Registration Successful
-       </h2>
-       <p className="text-gray-500 text-[15px] leading-relaxed">
-         Your account has been successfully created.
-       </p>
-     </div>
+        {error ? (
+          <p className="notice bad" role="alert">
+            {error}
+          </p>
+        ) : null}
 
-     {/* Action Button */}
-     <button
-       onClick={() => navigate("/login")}
-       className="mt-4 bg-blue-600 text-white px-6 py-2.5 rounded-lg 
-                hover:bg-blue-700 transition-colors duration-200
-                focus:outline-none focus:ring-2 focus:ring-blue-500 
-                focus:ring-offset-2 w-full text-sm font-medium
-                flex items-center justify-center gap-2"
-     >
-       Continue to Login
-       <svg
-         xmlns="http://www.w3.org/2000/svg"
-         className="h-4 w-4"
-         viewBox="0 0 20 20"
-         fill="currentColor"
-       >
-         <path
-           fillRule="evenodd"
-           d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z"
-           clipRule="evenodd"
-         />
-       </svg>
-     </button>
-   </div>
- </div>
-</div>
-)}
+        {/* ---------------- step 1: you ---------------- */}
+        {step === 1 ? (
+          <>
+            <div className="field">
+              <label htmlFor="su-name">Your name</label>
+              <input
+                id="su-name"
+                className="inp"
+                value={form.fullName}
+                onChange={set('fullName')}
+                autoComplete="name"
+                aria-invalid={fieldErrors.fullName ? 'true' : undefined}
+                required
+              />
+              {fieldErrors.fullName ? <p className="err">{fieldErrors.fullName}</p> : null}
+            </div>
 
-    </div>
+            <div className="field">
+              <label htmlFor="su-email">Email</label>
+              <input
+                id="su-email"
+                className="inp"
+                type="email"
+                inputMode="email"
+                value={form.email}
+                onChange={set('email')}
+                autoComplete="email"
+                aria-invalid={fieldErrors.email ? 'true' : undefined}
+                required
+              />
+              {fieldErrors.email ? <p className="err">{fieldErrors.email}</p> : null}
+              <p className="hint">Receipts and feedback alerts go here.</p>
+            </div>
+
+            <div className="field">
+              <label htmlFor="su-phone">Mobile</label>
+              <input
+                id="su-phone"
+                className="inp"
+                type="tel"
+                inputMode="numeric"
+                maxLength={10}
+                value={form.phone}
+                onChange={set('phone')}
+                autoComplete="tel-national"
+                aria-invalid={fieldErrors.phone ? 'true' : undefined}
+                required
+              />
+              {fieldErrors.phone ? <p className="err">{fieldErrors.phone}</p> : null}
+            </div>
+          </>
+        ) : null}
+
+        {/* ---------------- step 2: business ---------------- */}
+        {step === 2 ? (
+          <>
+            <div className="field">
+              <label htmlFor="su-biz">Business name</label>
+              <input
+                id="su-biz"
+                className="inp"
+                value={form.businessName}
+                onChange={set('businessName')}
+                aria-invalid={fieldErrors.businessName ? 'true' : undefined}
+                required
+              />
+              {fieldErrors.businessName ? <p className="err">{fieldErrors.businessName}</p> : null}
+              <p className="hint">Exactly as it appears on your Google listing.</p>
+            </div>
+
+            <div className="field">
+              <label htmlFor="su-type">What kind of business?</label>
+              <select
+                id="su-type"
+                className="inp"
+                value={form.businessType}
+                onChange={set('businessType')}
+                aria-invalid={fieldErrors.businessType ? 'true' : undefined}
+                required
+              >
+                <option value="">Choose one…</option>
+                {BUSINESS_TYPES.map((t) => (
+                  <option key={t} value={t}>
+                    {t}
+                  </option>
+                ))}
+              </select>
+              {fieldErrors.businessType ? <p className="err">{fieldErrors.businessType}</p> : null}
+            </div>
+
+            <div className="field">
+              <label htmlFor="su-place">Google Place ID</label>
+              <input
+                id="su-place"
+                className="inp signup-mono"
+                value={form.placeId}
+                onChange={set('placeId')}
+                placeholder="ChIJ…"
+                aria-invalid={fieldErrors.placeId ? 'true' : undefined}
+                required
+              />
+              {fieldErrors.placeId ? <p className="err">{fieldErrors.placeId}</p> : null}
+              <p className="hint">
+                This is what points reviews at your listing.{' '}
+                <a
+                  className="auth-link"
+                  href="https://developers.google.com/maps/documentation/places/web-service/place-id"
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Find yours with Google&apos;s tool
+                </a>{' '}
+                — search your business name and copy the ID it returns. Stuck? Leave it as{' '}
+                <code>pending</code> and email us; we will set it for you.
+              </p>
+            </div>
+          </>
+        ) : null}
+
+        {/* ---------------- step 3: account ---------------- */}
+        {step === 3 ? (
+          <>
+            <div className="field">
+              <label htmlFor="su-pass">Choose a password</label>
+              <input
+                id="su-pass"
+                className="inp"
+                type="password"
+                value={form.password}
+                onChange={set('password')}
+                autoComplete="new-password"
+                aria-invalid={fieldErrors.password ? 'true' : undefined}
+                required
+              />
+              {fieldErrors.password ? <p className="err">{fieldErrors.password}</p> : null}
+              <p className="hint">At least 8 characters.</p>
+            </div>
+
+            <div className="field">
+              <label htmlFor="su-pass2">Confirm it</label>
+              <input
+                id="su-pass2"
+                className="inp"
+                type="password"
+                value={form.confirmPassword}
+                onChange={set('confirmPassword')}
+                autoComplete="new-password"
+                aria-invalid={fieldErrors.confirmPassword ? 'true' : undefined}
+                required
+              />
+              {fieldErrors.confirmPassword ? <p className="err">{fieldErrors.confirmPassword}</p> : null}
+            </div>
+
+            <div className="field">
+              <label htmlFor="su-ref">Referral code</label>
+              <input
+                id="su-ref"
+                className="inp"
+                value={form.referralCode}
+                onChange={set('referralCode')}
+                placeholder="WZ26NOV11-4821, or google"
+                aria-invalid={fieldErrors.referralCode ? 'true' : undefined}
+                required
+              />
+              {fieldErrors.referralCode ? <p className="err">{fieldErrors.referralCode}</p> : null}
+              <p className="hint">
+                From whoever introduced you. No code? Enter <code>google</code>, <code>instagram</code> or{' '}
+                <code>facebook</code> — whichever is how you found us.
+              </p>
+            </div>
+          </>
+        ) : null}
+
+        {/* ---------------- step 4: pay ---------------- */}
+        {step === 4 ? (
+          <>
+            {p.annualAvailable !== false ? (
+              <div className="signup-cycle" role="group" aria-label="Billing after the first month">
+                <button
+                  type="button"
+                  aria-pressed={!annual}
+                  className={!annual ? 'on' : undefined}
+                  onClick={() => {
+                    setCycle('monthly');
+                    trackClick('signup_cycle_selected', { cycle: 'monthly' });
+                  }}
+                >
+                  <b>{money(p.monthlyPaise)}/month</b>
+                  <small>Standard. Cancel any time.</small>
+                </button>
+                <button
+                  type="button"
+                  aria-pressed={annual}
+                  className={annual ? 'on' : undefined}
+                  onClick={() => {
+                    setCycle('annual');
+                    trackClick('signup_cycle_selected', { cycle: 'annual' });
+                  }}
+                >
+                  <b>{money(p.annualPerMonthPaise)}/month</b>
+                  <small>Billed yearly — save {p.annualSavingPercent}%</small>
+                </button>
+              </div>
+            ) : null}
+
+            <ul className="signup-recap">
+              <li>
+                <span>Today</span>
+                <b>{money(p.firstMonthPaise)}</b>
+              </li>
+              <li>
+                <span>From {p.trialDays} days&apos; time</span>
+                <b>{annual ? `${money(p.annualPaise)}/year` : `${money(p.monthlyPaise)}/month`}</b>
+              </li>
+              <li>
+                <span>{annual ? 'First 13 months' : 'First 12 months'}</span>
+                <b>{money(annual ? p.firstYearAnnualPaise : p.firstYearMonthlyPaise)}</b>
+              </li>
+            </ul>
+
+            <p className="hint" style={{ marginTop: 14 }}>
+              You are setting up an automatic payment, so you will not have to do this again each month. Cancel from
+              your dashboard whenever you like — your page keeps working until the end of the period you have paid for.
+              By continuing you agree to our{' '}
+              <Link className="auth-link" to="/terms-condition">
+                terms
+              </Link>
+              .
+            </p>
+
+            <button type="button" className="auth-submit" disabled={busy || phase === 'paying'} onClick={pay}>
+              {busy || phase === 'paying' ? 'Opening payment…' : `Pay ${money(p.firstMonthPaise)} and finish`}
+            </button>
+          </>
+        ) : null}
+
+        {/* ---------------- navigation ---------------- */}
+        <div className="signup-nav">
+          {step > 1 ? (
+            <button
+              type="button"
+              className="signup-back"
+              onClick={() => {
+                setStep((s) => s - 1);
+                setError('');
+              }}
+            >
+              Back
+            </button>
+          ) : (
+            <span />
+          )}
+
+          {step < 4 ? (
+            <button type="button" className="auth-submit signup-next" disabled={busy} onClick={next}>
+              {busy ? 'Checking…' : 'Continue'}
+            </button>
+          ) : null}
+        </div>
+      </AuthShell>
+    </>
   );
 }
-
-export default Register;

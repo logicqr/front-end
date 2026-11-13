@@ -1,776 +1,566 @@
-import React, { useState, useEffect } from "react";
-import {
-  FiCopy,
-  FiEye,
-  FiEyeOff,
-  FiLock,
-  FiCheckCircle,
-  FiUser,
-  FiMail,
-  FiPhone,
-  FiKey,
-} from "react-icons/fi";
-import { BsCheckLg } from "react-icons/bs";
-import { motion, AnimatePresence } from "framer-motion";
+import { useCallback, useEffect, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Helmet } from 'react-helmet-async';
+import { http, RAZORPAY_KEY } from '../../lib/api';
+import { useAuth } from '../../lib/auth';
+import { money, derivePricing, PRICING } from '../../data/site';
 
-import axiosInstance from "../auth/axios";
+/**
+ * Customer account settings: profile, subscription, how reviews are routed, and
+ * password.
+ *
+ * This page is where every promise on the marketing site lands — "cancel in one
+ * click", "switch to yearly", "restart any time" all point here, so none of them
+ * can be decorative.
+ *
+ * It replaces a 776-line file that carried a live Razorpay key and the old ₹749
+ * one-off renewal, and whose "current password" field was collected and never
+ * sent anywhere.
+ */
 
-const AccountSettings = () => {
-  const [employeeData, setEmployeeData] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [showPasswordForm, setShowPasswordForm] = useState(false);
-  const [formData, setFormData] = useState({
-    otp: "",
-    newPassword: "",
-    confirmPassword: "",
+const RAZORPAY_SRC = 'https://checkout.razorpay.com/v1/checkout.js';
+
+function loadRazorpay() {
+  if (window.Razorpay) return Promise.resolve(true);
+  return new Promise((resolve) => {
+    const existing = document.querySelector(`script[src="${RAZORPAY_SRC}"]`);
+    if (existing) {
+      existing.addEventListener('load', () => resolve(true));
+      existing.addEventListener('error', () => resolve(false));
+      return;
+    }
+    const script = document.createElement('script');
+    script.src = RAZORPAY_SRC;
+    script.async = true;
+    script.onload = () => resolve(true);
+    script.onerror = () => resolve(false);
+    document.body.appendChild(script);
   });
-  const [passwordError, setPasswordError] = useState("");
-  const [successMessage, setSuccessMessage] = useState(false);
-  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
-  const [showNewPassword, setShowNewPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [passwordStrength, setPasswordStrength] = useState("");
-  const [otpPopUp, setOtpPopUp] = useState(true);
-  const [subscriptionStatus, setSubscriptionStatus] = useState(null);
-  const userId = sessionStorage.getItem("id");
-  const [paying,setPaying] = useState(false)
-  const [popup, setpopup] = useState(false);
+}
 
-  useEffect(() => {
-    // if (!userId || employeeData) return;
-    const fetchData = async () => {
-      try {
-        const response = await axiosInstance.get(`/users/${userId}/dashboard`);
-        // console.log(response)
-        if (response.data.message === "Subscription inactive. Please renew.") {
-          setpopup(true)
-          setSubscriptionStatus({
-            active: false,
-            userName: response.data.userName,
-            businessName: response.data.businessName,
-          });
-        } else {
-          setEmployeeData(response.data.userDetails);
-          setSubscriptionStatus({ active: true });
-          setpopup(false)
+const fmtDate = (d) =>
+  d ? new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : '—';
+
+const STATUS = {
+  ACTIVE: { label: 'Active', tone: 'bg-signal-live-soft text-signal-live' },
+  AUTHENTICATED: { label: 'Starting', tone: 'bg-brand-100 text-brand-800' },
+  PENDING: { label: 'Payment retrying', tone: 'bg-pastel-butter text-ink' },
+  HALTED: { label: 'Paused', tone: 'bg-signal-warn-soft text-[#8f2f0c]' },
+  CANCELLED: { label: 'Cancelled', tone: 'bg-paper text-ink-mute' },
+  COMPLETED: { label: 'Ended', tone: 'bg-paper text-ink-mute' },
+  EXPIRED: { label: 'Expired', tone: 'bg-paper text-ink-mute' },
+};
+
+function Card({ title, note, children }) {
+  return (
+    <section className="rounded-2xl bg-white ring-1 ring-ink/10">
+      <header className="border-b border-ink/10 px-5 py-4 sm:px-6">
+        <h2 className="text-base font-semibold tracking-tight text-ink">{title}</h2>
+        {note ? <p className="mt-0.5 text-sm text-ink-mute">{note}</p> : null}
+      </header>
+      <div className="px-5 py-5 sm:px-6">{children}</div>
+    </section>
+  );
+}
+
+function Row({ label, children }) {
+  return (
+    <div className="flex flex-col gap-0.5 border-b border-ink/5 py-3 last:border-0 sm:flex-row sm:items-baseline sm:justify-between sm:gap-6">
+      <dt className="text-sm text-ink-mute">{label}</dt>
+      <dd className="text-sm font-medium text-ink sm:text-right">{children}</dd>
+    </div>
+  );
+}
+
+function Notice({ tone = 'info', children }) {
+  const cls = {
+    info: 'bg-brand-50 text-brand-800',
+    good: 'bg-signal-live-soft text-[#15663a]',
+    bad: 'bg-signal-warn-soft text-[#8f2f0c]',
+  }[tone];
+  return (
+    <p className={`rounded-xl px-4 py-3 text-sm leading-relaxed ${cls}`} role={tone === 'bad' ? 'alert' : 'status'}>
+      {children}
+    </p>
+  );
+}
+
+export default function AccountSettings() {
+  const navigate = useNavigate();
+  const { user, signOut, reload } = useAuth();
+
+  const [sub, setSub] = useState(null);
+  const [flow, setFlow] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
+  const [msg, setMsg] = useState(null); // { tone, text }
+  const [busy, setBusy] = useState('');
+  const [confirmCancel, setConfirmCancel] = useState(false);
+
+  const [pw, setPw] = useState({ current: '', next: '', confirm: '' });
+  const [pwError, setPwError] = useState('');
+
+  const p = derivePricing(
+    sub?.pricing
+      ? {
+          ...PRICING,
+          firstMonthPaise: sub.pricing.firstMonthPaise,
+          monthlyPaise: sub.pricing.monthlyPaise,
+          annualPaise: sub.pricing.annualPaise,
+          trialDays: sub.pricing.trialDays,
         }
-        // console.log(response.data)
-        // setEmployeeData(response.data.userDetails);
-      } catch (err) {
-        setError(err.message);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchData();
-  }, [userId]);
+      : PRICING
+  );
 
-  const renewSubscription = async () => {
-    setPaying(true)
+  const load = useCallback(async () => {
+    setLoadError('');
     try {
-      const response = await axiosInstance.post("/renew-subscription", {
-        user_id: userId, // Replace with actual user ID
-      });
-
-      if (response.status === 200) {
-        // console.log(response.data.order.id);
-        // console.log(response.data.order.amount);
-
-        const options = {
-          key: "rzp_live_R4krQLCHamePO8", // Use env variable
-          amount: response.data.order.amount,
-          currency: "INR",
-          order_id: response.data.order.id,
-          handler: function (response) {
-            // console.log("Payment Successful:", response);
-            window.location.reload();
-          },
-          prefill: {
-            name: "John Doe",
-            email: "john@example.com",
-            contact: "9876543210",
-          },
-          theme: { color: "#3399cc" },
-        };
-
-        const rzp1 = new window.Razorpay(options);
-        rzp1.open();
-      }
-    } catch (error) {
-      console.error("Error:", error);
+      const [s, f] = await Promise.all([http.get('/my/subscription'), http.get('/my/review-flow')]);
+      setSub(s);
+      setFlow(f);
+    } catch (err) {
+      setLoadError(err.message);
     } finally {
       setLoading(false);
-      setPaying(false)
     }
-  };
+  }, []);
 
   useEffect(() => {
-    if (formData.newPassword.length === 0) {
-      setPasswordStrength("");
-    } else if (formData.newPassword.length < 6) {
-      setPasswordStrength("Weak");
-    } else if (formData.newPassword.length < 10) {
-      setPasswordStrength("Medium");
-    } else {
-      setPasswordStrength("Strong");
-    }
-  }, [formData.newPassword]);
+    load();
+  }, [load]);
 
-  const resetForm = () => {
-    setFormData({
-      otp: "",
-      newPassword: "",
-      confirmPassword: "",
-    });
-    setPasswordStrength("");
-    setPasswordError("");
-    setSuccessMessage(false);
-    setShowCurrentPassword(false);
-    setShowNewPassword(false);
-    setShowConfirmPassword(false);
-  };
+  const say = (tone, text) => setMsg({ tone, text });
 
-  const copyToClipboard = (text) => {
-    navigator.clipboard.writeText(text);
-  };
+  /* ---------------------------------------------------- subscription */
 
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
-  };
-
-  const handlePasswordChange = async (e) => {
-    e.preventDefault();
-    setPasswordError("");
-    setSuccessMessage(false);
-    resetForm();
-
-    if (formData.newPassword !== formData.confirmPassword) {
-      setPasswordError("New passwords do not match");
-      return;
-    }
-
-    if (formData.newPassword.length < 8) {
-      setPasswordError("Password must be at least 8 characters");
-      return;
-    }
-
-    if (!formData.otp) {
-      setPasswordError("OTP is required");
-      return;
-    }
-
+  const cancel = async () => {
+    setBusy('cancel');
+    setMsg(null);
     try {
-      const response = await axiosInstance.post("/auth/verify-otp", {
-        email: employeeData.user.email,
-        otp: formData.otp,
-        newPassword: formData.newPassword,
-      });
-
-      // console.log("Password change response:", response.data);
-
-      if (response.data) {
-        setSuccessMessage(true);
-        // console.log("setSuccessMessage(true);")
-        // Delay form reset and hiding the form to allow UI update
-        setShowPasswordForm(true);
-        setTimeout(() => {
-          setShowPasswordForm(false);
-          setSuccessMessage(false);
-        }, 3000);
-      } else {
-        // console.log("setSuccessMessage(false);")
-        setPasswordError(response.data.message || "Failed to change password");
-      }
+      const res = await http.post('/my/subscription/cancel');
+      say('good', res.message || 'Cancelled. No further charges.');
+      setConfirmCancel(false);
+      await load();
     } catch (err) {
-      setSuccessMessage(false); // 🚨 Add this line
-      console.error("Password change error:", err);
-      setPasswordError(
-        err.response?.data?.message || "Failed to change password"
-      );
+      say('bad', err.message);
+    } finally {
+      setBusy('');
     }
-
-    // Keep the error message visible for a while
-    setTimeout(() => setPasswordError(""), 5000);
   };
 
-  const Otp = async () => {
-    setOtpPopUp(false);
-    try {
-      const response = await axiosInstance.post("/auth/forgot-password", {
-        email: employeeData.user.email,
+  /** Opens Razorpay for a subscription the server created, then confirms it. */
+  const authorise = async ({ start, description, confirmPath, success }) => {
+    const ready = await loadRazorpay();
+    if (!ready) throw new Error('Could not open the payment window. Check your connection and try again.');
+
+    await new Promise((resolve, reject) => {
+      const rzp = new window.Razorpay({
+        key: start.keyId || RAZORPAY_KEY,
+        subscription_id: start.subscriptionId,
+        name: 'LogicQR',
+        description,
+        prefill: start.prefill,
+        theme: { color: '#13B8CF' },
+        handler: async (r) => {
+          try {
+            // Success is claimed only once the server has verified it — never
+            // on the gateway callback alone.
+            const done = await http.post(confirmPath, {
+              razorpay_payment_id: r.razorpay_payment_id,
+              razorpay_subscription_id: r.razorpay_subscription_id,
+              razorpay_signature: r.razorpay_signature,
+            });
+            say('good', done.message || success);
+            resolve();
+          } catch (err) {
+            reject(err);
+          }
+        },
+        modal: { ondismiss: () => reject(Object.assign(new Error('dismissed'), { dismissed: true })) },
       });
+      rzp.open();
+    });
+  };
 
-      // console.log("OTP Sent:", response.data); // Optional: Debugging
-      if (response.data.success) {
-        // Optional: Show a success message for OTP sent
-        setPasswordError("OTP has been sent to your email");
-      } else {
-        setPasswordError(response.data.message || "Failed to send OTP");
+  const switchToAnnual = async () => {
+    setBusy('annual');
+    setMsg(null);
+    try {
+      const start = await http.post('/my/subscription/switch-to-annual');
+      if (start.alreadyAnnual) {
+        say('info', start.message);
+        return;
       }
-    } catch (error) {
-      console.error("Error sending OTP:", error);
-      setPasswordError(
-        error.response?.data?.message || "Failed to send OTP. Please try again."
-      );
+      await authorise({
+        start,
+        description: `Yearly plan — ${money(p.annualPaise)}, starting ${fmtDate(start.startsOn)}`,
+        confirmPath: '/my/subscription/switch-to-annual/confirm',
+        success: 'You are on yearly billing.',
+      });
+      await load();
+    } catch (err) {
+      if (!err.dismissed) say('bad', err.message);
+    } finally {
+      setBusy('');
     }
   };
 
-  if (loading)
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-pulse flex flex-col items-center gap-4">
-          <div className="w-32 h-32 rounded-full bg-gray-200" />
-          <div className="h-4 bg-gray-200 rounded w-48" />
-          <div className="h-4 bg-gray-200 rounded w-64" />
-        </div>
-      </div>
-    );
+  const restart = async (cycle) => {
+    setBusy(`restart-${cycle}`);
+    setMsg(null);
+    try {
+      const start = await http.post('/my/subscription/restart', { cycle });
+      await authorise({
+        start,
+        description: cycle === 'annual' ? `Yearly plan — ${money(p.annualPaise)}` : `Monthly plan — ${money(p.monthlyPaise)}`,
+        confirmPath: '/my/subscription/restart/confirm',
+        success: 'Your review page is live again.',
+      });
+      await Promise.all([load(), reload()]);
+    } catch (err) {
+      if (!err.dismissed) say('bad', err.message);
+    } finally {
+      setBusy('');
+    }
+  };
 
-  if (error)
+  /* ---------------------------------------------------- review flow */
+
+  const changeFlow = async (value) => {
+    if (value === flow?.reviewFlow) return;
+    setBusy('flow');
+    setMsg(null);
+    try {
+      await http.put('/my/review-flow', { reviewFlow: value });
+      setFlow((f) => ({ ...f, reviewFlow: value }));
+      say('good', 'Saved. The change applies to the next customer who scans.');
+    } catch (err) {
+      say('bad', err.message);
+    } finally {
+      setBusy('');
+    }
+  };
+
+  /* ---------------------------------------------------- password */
+
+  const changePassword = async (e) => {
+    e.preventDefault();
+    setPwError('');
+    setMsg(null);
+
+    if (pw.next.length < 8) return setPwError('Use at least 8 characters.');
+    if (pw.next !== pw.confirm) return setPwError('Those two passwords do not match.');
+
+    setBusy('password');
+    try {
+      const res = await http.post('/my/password', { currentPassword: pw.current, newPassword: pw.next });
+      say('good', res.message || 'Password updated.');
+      // Every session ends on a password change, including this one.
+      setTimeout(async () => {
+        await signOut();
+        navigate('/login', { replace: true });
+      }, 1600);
+    } catch (err) {
+      setPwError(err.message);
+    } finally {
+      setBusy('');
+    }
+  };
+
+  /* ---------------------------------------------------- render */
+
+  if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="w-full md:w-[40%] m-5 p-6 bg-red-50 rounded-xl text-red-600 text-center">
-          <h2 className="text-xl font-bold mb-2">⚠️ Loading Error</h2>
-          <p>{error}</p>
-          <button
-            onClick={() => window.location.reload()}
-            className="mt-4 px-4 py-2 bg-red-100 hover:bg-red-200 rounded-lg text-red-600"
-          >
-            Try Again
-          </button>
+      <div className="min-h-screen bg-paper pt-24" role="status">
+        <div className="mx-auto max-w-2xl space-y-3 px-4">
+          {[0, 1, 2].map((i) => (
+            <div key={i} className="h-40 animate-pulse rounded-2xl bg-white/70 ring-1 ring-ink/5" />
+          ))}
         </div>
       </div>
     );
+  }
+
+  const s = sub?.subscription;
+  const status = STATUS[s?.status] || STATUS.CANCELLED;
+  const isLive = sub?.isActive;
+  const cancelled = s && ['CANCELLED', 'COMPLETED', 'EXPIRED'].includes(s.status);
+  const monthly = s?.cycle === 'MONTHLY';
 
   return (
-    <div>
-      <div className="min-h-screen bg-gradient-to-br mt-24 p-4 sm:p-6 lg:p-8">
-        <div className="container mx-auto bg-white rounded-2xl shadow-xl overflow-hidden">
-          <div
-            className="relative h-64 md:h-52"
-            style={{
-              backgroundImage: `url('https://ik.imagekit.io/pds5n5l6d3/LogicQR/Dashboard%20section/digiblue_pt_cover.jpeg?updatedAt=1741522515594')`,
-              backgroundSize: "cover",
-              backgroundPosition: "center",
-            }}
-          >
-            <div className="absolute md:bottom-2 bottom-5 w-full p-4 sm:p-6">
-              <div className="flex flex-col sm:flex-row items-center sm:items-end md:gap-4">
-                <motion.div
-                  initial={{ scale: 0.9, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  className="relative group"
-                >
-                  <img
-                    src="https://ik.imagekit.io/pds5n5l6d3/LogicQR/Dashboard%20section/7ec47348-583e-4a7a-9655-493c6c3b7b95-removebg-preview.png?updatedAt=1741522515589"
-                    alt="Profile"
-                    className="w-24 h-24 sm:w-32 sm:h-32 rounded-full border-4 border-white shadow-xl transition-transform group-hover:scale-105"
-                  />
-                </motion.div>
+    <div className="min-h-screen bg-paper pb-24 pt-24">
+      <Helmet>
+        <title>Account settings — LogicQR</title>
+        <meta name="robots" content="noindex" />
+      </Helmet>
 
-                <div className="text-center sm:text-left text-white space-y-2 flex-1">
-                  <h1 className="hidden md:block text-2xl sm:text-3xl font-bold drop-shadow-md">
-                    Account Settings
-                  </h1>
-                  <div className="flex items-center justify-center sm:justify-start gap-2 text-blue-100">
-                    <FiUser className="w-5 h-5" />
-                    <p className="text-lg sm:text-xl">
-                      {employeeData?.user?.name || ""}{" "}
-                      {/* Updated to user.name */}
-                    </p>
-                  </div>
-                  <div className="flex flex-wrap justify-center sm:justify-start gap-2 text-sm">
-                    <div className="bg-white/10 px-3 py-1 rounded-full flex items-center gap-1">
-                      <FiMail className="w-4 h-4" />
-                      {employeeData?.user?.email || ""}{" "}
-                      {/* Updated to user.email */}
-                    </div>
-                    <div className="bg-white/10 px-3 py-1 rounded-full flex items-center gap-1">
-                      <FiPhone className="w-4 h-4" />
-                      {employeeData?.user?.phoneNumber || ""}{" "}
-                      {/* Updated to user.phoneNumber */}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
+      <div className="mx-auto max-w-2xl space-y-4 px-4">
+        <div>
+          <h1 className="text-3xl font-medium tracking-display text-ink">Account settings</h1>
+          <p className="mt-1 text-sm text-ink-mute">{user?.businessName}</p>
+        </div>
+
+        {loadError ? <Notice tone="bad">{loadError}</Notice> : null}
+        {msg ? <Notice tone={msg.tone}>{msg.text}</Notice> : null}
+
+        {/* ------------------------------ subscription ------------------------------ */}
+        <Card title="Subscription" note="What you pay and when.">
+          <div className="mb-4 flex flex-wrap items-center gap-2">
+            <span className={`rounded-full px-3 py-1 text-xs font-semibold ${status.tone}`}>{status.label}</span>
+            {isLive ? (
+              <span className="text-sm text-ink-mute">Your review page is live.</span>
+            ) : (
+              <span className="text-sm text-ink-mute">Your review page is paused.</span>
+            )}
           </div>
 
-          <div className="p-4 sm:p-6 lg:p-8 space-y-6 sm:space-y-8">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
-              <motion.div
-                initial={{ y: 20, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                className="bg-gray-50 p-4 sm:p-6 rounded-xl border border-gray-100"
-              >
-                <h3 className="text-lg sm:text-xl font-bold mb-3 sm:mb-4 flex items-center gap-2">
-                  <FiUser className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600" />
-                  Personal Information
-                </h3>
-                <div className="space-y-3 sm:space-y-4">
-                  {[
-                    {
-                      label: "Full Name",
-                      value: employeeData?.user?.name || "", // Updated
-                      icon: FiUser,
-                    },
-                    {
-                      label: "Email",
-                      value: employeeData?.user?.email || "", // Updated
-                      icon: FiMail,
-                    },
-                    {
-                      label: "Phone",
-                      value: employeeData?.user?.phoneNumber || "", // Updated
-                      icon: FiPhone,
-                    },
-                  ].map((item, index) => (
-                    <div key={index} className="flex items-start gap-3">
-                      <item.icon className="w-4 h-4 sm:w-5 sm:h-5 text-gray-500 mt-1" />
-                      <div className="flex-1">
-                        <p className="text-xs sm:text-sm text-gray-500">
-                          {item.label}
-                        </p>
-                        <p className="text-sm sm:text-base font-medium text-gray-800">
-                          {item.value}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </motion.div>
+          <dl>
+            <Row label="Plan">
+              {s
+                ? monthly
+                  ? `${money(p.monthlyPaise)} a month`
+                  : `${money(p.annualPaise)} a year (${money(p.annualPerMonthPaise)}/month)`
+                : '—'}
+            </Row>
+            <Row label="Started">{fmtDate(sub?.startedOn)}</Row>
+            <Row label={cancelled ? 'Live until' : 'Paid until'}>{fmtDate(sub?.activeUntil)}</Row>
+            {!cancelled && s?.chargeAt ? <Row label="Next charge">{fmtDate(s.chargeAt)}</Row> : null}
+            <Row label="Payments made">{s?.paidCount ?? 0}</Row>
+          </dl>
 
-              <motion.div
-                initial={{ y: 20, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                transition={{ delay: 0.1 }}
-                className="bg-gray-50 p-4 sm:p-6 rounded-xl border border-gray-100"
-              >
-                <h3 className="text-lg sm:text-xl font-bold mb-3 sm:mb-4 flex items-center gap-2">
-                  <FiKey className="w-5 h-5 sm:w-6 sm:h-6 text-purple-600" />
-                  Employment Details
-                </h3>
-                <div className="space-y-3 sm:space-y-4">
-                  {[
-                    {
-                      label: "Staff ID",
-                      value: `#${employeeData?.user_id || ""}`, // Updated to user_id
-                    },
-                    {
-                      label: "Business Name",
-                      value: employeeData?.user?.businessName || "", // New field
-                    },
-                    {
-                      label: "Join Date",
-                      value: employeeData?.createdAt
-                        ? new Date(employeeData.createdAt)
-                            .toISOString()
-                            .split("T")[0]
-                            .split("-")
-                            .reverse()
-                            .join("-")
-                        : "",
-                    },
-                  ].map((item, index) => (
-                    <div
-                      key={index}
-                      className="group relative flex items-center justify-between"
-                    >
-                      <div>
-                        <p className="text-xs sm:text-sm text-gray-500">
-                          {item.label}
-                        </p>
-                        <p className="text-sm sm:text-base font-medium text-gray-800">
-                          {item.value}
-                        </p>
-                      </div>
-                      <button
-                        onClick={() =>
-                          copyToClipboard(item.value.replace("#", ""))
-                        }
-                        className="text-gray-400 hover:text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity p-1"
-                      >
-                        <FiCopy className="w-4 h-4" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </motion.div>
+          {/* Pending: reassure, do not alarm. */}
+          {s?.status === 'PENDING' ? (
+            <div className="mt-4">
+              <Notice tone="info">
+                The last payment did not go through. Your page is still working and we are retrying over the next few
+                days. If your card has expired, updating it avoids any interruption — email us and we will send you a
+                link.
+              </Notice>
             </div>
+          ) : null}
 
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.2 }}
-              className="bg-gray-50 p-4 sm:p-6 rounded-xl border border-gray-100"
-            >
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
-                <div className="flex-1">
-                  <h3 className="text-lg sm:text-xl font-bold mb-1 flex items-center gap-2">
-                    <FiLock className="w-5 h-5 sm:w-6 sm:h-6 text-green-600" />
-                    Login Credentials
-                  </h3>
-                  <p className="text-gray-600 text-sm sm:text-base">
-                    Secure your account with strong authentication
-                  </p>
-                </div>
+          {/* Yearly offer, to monthly customers. */}
+          {sub?.canSwitchToAnnual ? (
+            <div className="mt-5 rounded-xl bg-brand-50 p-4">
+              <p className="font-medium text-ink">Pay yearly and save {money(p.annualSavingPerYearPaise)}</p>
+              <p className="mt-1 text-sm leading-relaxed text-ink-soft">
+                {money(p.annualPerMonthPaise)} a month instead of {money(p.monthlyPaise)}, billed once a year as{' '}
+                {money(p.annualPaise)}. It starts when the period you have already paid for ends, so nothing is
+                charged twice.
+              </p>
+              <button
+                type="button"
+                onClick={switchToAnnual}
+                disabled={Boolean(busy)}
+                className="mt-3 rounded-full bg-ink px-5 py-2.5 text-sm font-medium text-white transition hover:bg-ink/90 disabled:opacity-50"
+              >
+                {busy === 'annual' ? 'Opening payment…' : 'Switch to yearly'}
+              </button>
+            </div>
+          ) : null}
+
+          {/* Restart a lapsed or cancelled account. */}
+          {!isLive || cancelled ? (
+            <div className="mt-5 rounded-xl bg-paper p-4">
+              <p className="font-medium text-ink">Bring your page back</p>
+              <p className="mt-1 text-sm leading-relaxed text-ink-soft">
+                Your reviews, QR code and link are all still here. Restarting takes a minute and there is no
+                introductory month the second time — you start on the standard rate.
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
                 <button
-                  onClick={() => {
-                    setShowPasswordForm(!showPasswordForm);
-                    if (!showPasswordForm) resetForm();
-                  }}
-                  className={`px-4 py-2 sm:px-5 sm:py-2.5 text-white rounded-lg font-medium transition-colors text-sm sm:text-base w-full sm:w-auto text-center ${
-                    showPasswordForm
-                      ? "bg-red-600 hover:bg-red-700"
-                      : "bg-blue-600 hover:bg-blue-700"
-                  }`}
+                  type="button"
+                  onClick={() => restart('monthly')}
+                  disabled={Boolean(busy)}
+                  className="rounded-full bg-ink px-5 py-2.5 text-sm font-medium text-white transition hover:bg-ink/90 disabled:opacity-50"
                 >
-                  {showPasswordForm ? "Close" : "Change Password"}
+                  {busy === 'restart-monthly' ? 'Opening payment…' : `${money(p.monthlyPaise)} a month`}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => restart('annual')}
+                  disabled={Boolean(busy)}
+                  className="rounded-full px-5 py-2.5 text-sm font-medium text-ink ring-1 ring-ink/15 transition hover:bg-white disabled:opacity-50"
+                >
+                  {busy === 'restart-annual' ? 'Opening payment…' : `${money(p.annualPaise)} a year`}
                 </button>
               </div>
+            </div>
+          ) : null}
 
-              <AnimatePresence>
-                {showPasswordForm && (
-                  <div>
-                    {otpPopUp ? (
-                      <div className="flex flex-col sm:flex-row items-center sm:justify-between gap-4 bg-gray-100 p-4 mt-5 border rounded-lg shadow-inner">
-                        <span className="text-gray-700 font-medium text-center sm:text-left">
-                          Send OTP for changing password for{" "}
-                          <strong>{employeeData?.user?.email || ""}</strong>
+          {/* Cancel */}
+          {s && !cancelled ? (
+            <div className="mt-6 border-t border-ink/10 pt-5">
+              {!confirmCancel ? (
+                <button
+                  type="button"
+                  onClick={() => setConfirmCancel(true)}
+                  className="text-sm text-ink-mute underline underline-offset-4 hover:text-ink"
+                >
+                  Cancel subscription
+                </button>
+              ) : (
+                <div className="rounded-xl bg-signal-warn-soft p-4">
+                  <p className="font-medium text-[#8f2f0c]">Cancel your subscription?</p>
+                  <p className="mt-1 text-sm leading-relaxed text-[#8f2f0c]">
+                    You will not be charged again. Your review page stays live until {fmtDate(sub?.activeUntil)}, the
+                    end of the period you have paid for, and your feedback stays in your dashboard.
+                  </p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={cancel}
+                      disabled={Boolean(busy)}
+                      className="rounded-full bg-[#8f2f0c] px-5 py-2.5 text-sm font-medium text-white transition hover:opacity-90 disabled:opacity-50"
+                    >
+                      {busy === 'cancel' ? 'Cancelling…' : 'Yes, cancel'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setConfirmCancel(false)}
+                      className="rounded-full px-5 py-2.5 text-sm font-medium text-[#8f2f0c] ring-1 ring-[#8f2f0c]/30 transition hover:bg-white/60"
+                    >
+                      Keep it
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : null}
+        </Card>
+
+        {/* ------------------------------ review flow ------------------------------ */}
+        {flow ? (
+          <Card
+            title="How reviews are routed"
+            note="What a customer sees after they scan and rate you."
+          >
+            <div role="radiogroup" aria-label="Review flow" className="space-y-2">
+              {flow.options.map((o) => {
+                const selected = flow.reviewFlow === o.value;
+                return (
+                  <button
+                    key={o.value}
+                    type="button"
+                    role="radio"
+                    aria-checked={selected}
+                    disabled={busy === 'flow'}
+                    onClick={() => changeFlow(o.value)}
+                    className={`w-full rounded-xl p-4 text-left transition ${
+                      selected ? 'bg-white ring-2 ring-ink' : 'bg-paper ring-1 ring-ink/10 hover:ring-ink/30'
+                    }`}
+                  >
+                    <span className="flex flex-wrap items-center gap-2">
+                      <span className="font-medium text-ink">{o.label}</span>
+                      {o.recommended ? (
+                        <span className="rounded-full bg-signal-live-soft px-2 py-0.5 text-[11px] font-semibold text-signal-live">
+                          Recommended
                         </span>
-                        <button
-                          onClick={Otp}
-                          className="px-4 py-2 w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition"
-                        >
-                          Send OTP
-                        </button>
-                      </div>
-                    ) : (
-                      <motion.div
-                        initial={{ height: 0, opacity: 0 }}
-                        animate={{ height: "auto", opacity: 1 }}
-                        exit={{ height: 0, opacity: 0 }}
-                        className="mt-4 sm:mt-6 overflow-hidden"
-                      >
-                        <form
-                          onSubmit={handlePasswordChange}
-                          className="space-y-4 sm:space-y-6"
-                        >
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
-                            <div className="relative space-y-2">
-                              <label className="text-sm text-gray-600 flex items-center gap-1">
-                                <FiLock className="w-4 h-4" /> OTP
-                              </label>
-                              <div className="relative">
-                                <input
-                                  type={
-                                    showCurrentPassword ? "text" : "password"
-                                  }
-                                  name="otp"
-                                  value={formData.otp}
-                                  onChange={handleInputChange}
-                                  className="w-full p-2 pr-10 border rounded-lg outline-none"
-                                  required
-                                />
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    setShowCurrentPassword(!showCurrentPassword)
-                                  }
-                                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-blue-600"
-                                >
-                                  {showCurrentPassword ? (
-                                    <FiEyeOff className="w-5 h-5" />
-                                  ) : (
-                                    <FiEye className="w-5 h-5" />
-                                  )}
-                                </button>
-                              </div>
-                            </div>
+                      ) : null}
+                      {!o.compliant ? (
+                        <span className="rounded-full bg-signal-warn-soft px-2 py-0.5 text-[11px] font-semibold text-[#8f2f0c]">
+                          Against Google policy
+                        </span>
+                      ) : null}
+                    </span>
+                    <span className="mt-1 block text-sm leading-relaxed text-ink-soft">{o.summary}</span>
+                  </button>
+                );
+              })}
+            </div>
 
-                            <div className="relative space-y-2">
-                              <label className="text-sm text-gray-600 flex items-center gap-1">
-                                <FiLock className="w-4 h-4" /> New Password
-                              </label>
-                              <div className="relative">
-                                <input
-                                  type={showNewPassword ? "text" : "password"}
-                                  name="newPassword"
-                                  value={formData.newPassword}
-                                  onChange={handleInputChange}
-                                  className="w-full p-2 pr-10 border rounded-lg outline-none"
-                                  required
-                                />
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    setShowNewPassword(!showNewPassword)
-                                  }
-                                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-blue-600"
-                                >
-                                  {showNewPassword ? (
-                                    <FiEyeOff className="w-5 h-5" />
-                                  ) : (
-                                    <FiEye className="w-5 h-5" />
-                                  )}
-                                </button>
-                              </div>
-                            </div>
+            {flow.reviewFlow === 'ROUTED' ? (
+              <div className="mt-4">
+                <Notice tone="bad">
+                  Your page currently shows the Google review option only to customers who rate you 4 or 5. Google
+                  prohibits that, and can remove reviews or suspend a listing for it. Switching to Open invite keeps
+                  the private feedback and removes the risk.{' '}
+                  <Link className="font-medium underline" to="/blog/review-gating-google-policy" target="_blank">
+                    What the policy says
+                  </Link>
+                </Notice>
+              </div>
+            ) : null}
+          </Card>
+        ) : null}
 
-                            <div className="relative space-y-2">
-                              <label className="text-sm text-gray-600 flex items-center gap-1">
-                                <FiLock className="w-4 h-4" /> Confirm Password
-                              </label>
-                              <div className="relative">
-                                <input
-                                  type={
-                                    showConfirmPassword ? "text" : "password"
-                                  }
-                                  name="confirmPassword"
-                                  value={formData.confirmPassword}
-                                  onChange={handleInputChange}
-                                  className="w-full p-2 pr-10 border rounded-lg outline-none"
-                                  required
-                                />
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    setShowConfirmPassword(!showConfirmPassword)
-                                  }
-                                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-blue-600"
-                                >
-                                  {showConfirmPassword ? (
-                                    <FiEyeOff className="w-5 h-5" />
-                                  ) : (
-                                    <FiEye className="w-5 h-5" />
-                                  )}
-                                </button>
-                              </div>
-                            </div>
+        {/* ------------------------------ password ------------------------------ */}
+        <Card title="Password" note="Changing it signs you out everywhere.">
+          <form onSubmit={changePassword} noValidate className="space-y-4">
+            {pwError ? <Notice tone="bad">{pwError}</Notice> : null}
 
-                            <div className="space-y-2">
-                              <label className="text-sm text-gray-600">
-                                Password Strength
-                              </label>
-                              <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-                                <div
-                                  className={`h-full transition-all duration-500 ${
-                                    passwordStrength === "Weak"
-                                      ? "bg-red-500 w-1/3"
-                                      : passwordStrength === "Medium"
-                                      ? "bg-yellow-500 w-2/3"
-                                      : passwordStrength === "Strong"
-                                      ? "bg-green-500 w-full"
-                                      : "w-0"
-                                  }`}
-                                />
-                              </div>
-                              <p className="text-sm font-medium">
-                                {passwordStrength && (
-                                  <span
-                                    className={`${
-                                      passwordStrength === "Weak"
-                                        ? "text-red-600"
-                                        : passwordStrength === "Medium"
-                                        ? "text-yellow-600"
-                                        : "text-green-600"
-                                    }`}
-                                  >
-                                    {passwordStrength} Password
-                                  </span>
-                                )}
-                              </p>
-                            </div>
-                          </div>
+            <div>
+              <label htmlFor="pw-current" className="mb-1.5 block text-sm font-medium text-ink-soft">
+                Current password
+              </label>
+              <input
+                id="pw-current"
+                type="password"
+                autoComplete="current-password"
+                value={pw.current}
+                onChange={(e) => setPw((v) => ({ ...v, current: e.target.value }))}
+                className="w-full rounded-xl bg-paper px-4 py-3 text-base text-ink outline-none ring-1 ring-ink/15 transition focus:bg-white focus:ring-2 focus:ring-ink"
+                required
+              />
+            </div>
 
-                          {/* Updated Message Display with Correct Styling Priority */}
-                          <AnimatePresence>
-                            {passwordError &&
-                              passwordError !==
-                                "Password updated successfully" && (
-                                <motion.div
-                                  key={passwordError}
-                                  initial={{ opacity: 0, y: -10 }}
-                                  animate={{ opacity: 1, y: 0 }}
-                                  exit={{ opacity: 0, y: -10 }}
-                                  className="p-3 sm:p-4 rounded-lg bg-red-50 text-red-700"
-                                >
-                                  <div className="flex items-center gap-2 text-sm sm:text-base">
-                                    <FiLock className="w-4 h-4 sm:w-5 sm:h-5" />
-                                    <p>{passwordError}</p>
-                                  </div>
-                                </motion.div>
-                              )}
-                          </AnimatePresence>
-
-                          <div className="flex flex-col-reverse sm:flex-row gap-2 sm:gap-3 justify-end">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setShowPasswordForm(false);
-                                resetForm();
-                                setSuccessMessage(false); // Clear success message on cancel
-                              }}
-                              className="px-4 py-2 sm:px-5 sm:py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium transition-colors text-sm sm:text-base w-full sm:w-auto"
-                            >
-                              Cancel
-                            </button>
-                            <button
-                              type="submit"
-                              className="px-4 py-2 sm:px-5 sm:py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2 text-sm sm:text-base w-full sm:w-auto"
-                            >
-                              <FiCheckCircle className="w-4 h-4 sm:w-5 sm:h-5" />
-                              Update Password
-                            </button>
-                          </div>
-                        </form>
-                      </motion.div>
-                    )}
-                  </div>
-                )}
-                {successMessage && (
-                  <div>
-                    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                      <div className="bg-white rounded-lg p-6 max-w-sm w-full mx-4 transform transition-all">
-                        <div className="flex flex-col items-center">
-                          {/* Checkmark Icon */}
-                          <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4">
-                            <svg
-                              className="w-8 h-8 text-green-600"
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                              xmlns="http://www.w3.org/2000/svg"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M5 13l4 4L19 7"
-                              />
-                            </svg>
-                          </div>
-
-                          {/* Success Message */}
-                          <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                            Password Changed!
-                          </h3>
-                          <p className="text-gray-600 text-center mb-4">
-                            Your password has been updated successfully.
-                          </p>
-
-                          {/* Close Button */}
-                          <button
-                            onClick={() => setSuccessMessage(false)}
-                            className="w-full bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-md transition-colors"
-                          >
-                            Close
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </AnimatePresence>
-            </motion.div>
-          </div>
-        </div>
-      </div>
-
-      {popup && (
-      <div className="fixed inset-0 mt-20 flex justify-center items-center bg-black bg-opacity-50 z-30  ">
-        <div className=" lg:max-w-sm  max-w-md  shadow-lg  text-center relative m-5  ">
-          <div className="bg-white rounded-xl lg:px-8 px-5 py-6 ">
-            <div className="flex justify-center  ">
-              <div className="h-36  w-full">
-                <img
-                  src="https://ik.imagekit.io/69rzkdyiaw/Group%201171275600.png?updatedAt=1738852802860"
-                  alt="CRM Renewal"
-                  className="w-full h-full object-cover"
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <label htmlFor="pw-next" className="mb-1.5 block text-sm font-medium text-ink-soft">
+                  New password
+                </label>
+                <input
+                  id="pw-next"
+                  type="password"
+                  autoComplete="new-password"
+                  value={pw.next}
+                  onChange={(e) => setPw((v) => ({ ...v, next: e.target.value }))}
+                  className="w-full rounded-xl bg-paper px-4 py-3 text-base text-ink outline-none ring-1 ring-ink/15 transition focus:bg-white focus:ring-2 focus:ring-ink"
+                  required
+                />
+              </div>
+              <div>
+                <label htmlFor="pw-confirm" className="mb-1.5 block text-sm font-medium text-ink-soft">
+                  Confirm it
+                </label>
+                <input
+                  id="pw-confirm"
+                  type="password"
+                  autoComplete="new-password"
+                  value={pw.confirm}
+                  onChange={(e) => setPw((v) => ({ ...v, confirm: e.target.value }))}
+                  className="w-full rounded-xl bg-paper px-4 py-3 text-base text-ink outline-none ring-1 ring-ink/15 transition focus:bg-white focus:ring-2 focus:ring-ink"
+                  required
                 />
               </div>
             </div>
 
-            <h2 className="text-orange-600 font-semibold md:text-lg text-base flex justify-center items-center">
-              Renew Your CRM <span className="ml-1">⏳</span>
-            </h2>
+            <button
+              type="submit"
+              disabled={busy === 'password' || !pw.current || !pw.next}
+              className="rounded-full bg-ink px-5 py-2.5 text-sm font-medium text-white transition hover:bg-ink/90 disabled:opacity-50"
+            >
+              {busy === 'password' ? 'Saving…' : 'Change password'}
+            </button>
+          </form>
+        </Card>
 
-            <p className="text-left text-gray-600 ">
-              <span className="md:text-sm  text-xs font-semibold">
-                {" "}
-                Hi {subscriptionStatus?.userName || "n/a"} ;{" "}
-              </span>
-              <br />
-              <span className="md:text-sm text-xs ">
-                Your subscription for{" "}
-                <span className="font-semibold">
-                  {subscriptionStatus?.businessName || "n/a"}
-                </span>{" "}
-                has expired. Renew now to restore your service.{" "}
-              </span>
-            </p>
-
-            <p className="text-left text-gray-600 md:text-sm text-xs mt-2">
-              <span className="md:text-sm text-xs font-semibold">Thanks,</span>
-              <br />
-              Team LogicQR
-            </p>
-
-            <div className="bg-gray-50 border rounded-lg px-4 py-2 mt-2">
-              <p className="text-2xl font-bold text-[#032068] ">
-                <span className="md:text-sm text-xs">₹749 </span>
-                <span className="md:text-sm text-xs font-normal text-gray-500">
-                  / Half-Year Plan
-                </span>
-              </p>
-              <div className="mt-2 text-left border rounded-lg px-3 py-1">
-                <p className="font-semibold text-gray-700 md:text-base text-sm">
-                  Featured Services
-                </p>
-                <ul className="mt-2 space-y-2 text-gray-600">
-                  <li className="flex items-center md:text-sm text-xs">
-                    <span className="text-blue-500 mr-2">
-                      <BsCheckLg />
-                    </span>{" "}
-                    Unlimited customer feedback collection.
-                  </li>
-                  <li className="flex items-center md:text-sm text-xs">
-                    <span className="text-blue-500 mr-2">
-                      <BsCheckLg />
-                    </span>{" "}
-                    Smart review filtering (positive, neutral, negative).
-                  </li>
-                  <li className="flex items-center md:text-sm text-xs">
-                    <span className="text-blue-500 mr-2">
-                      <BsCheckLg />
-                    </span>{" "}
-                    Auto-publish positive reviews to Google.
-                  </li>
-                </ul>
-              </div>
-            </div>
-
-            <div className="flex justify-between mt-3">
-              {/* <button onClick={() => setIsOpen(false)} className="w-1/2 bg-gray-300 text-gray-700 font-semibold md:text-sm text-xs py-2 rounded-md mr-2">Go Back</button> */}
-              <button
-                className=" w-full bg-[#032068] text-white font-semibold py-2 md:text-sm text-xs rounded-md"
-                onClick={renewSubscription}
-              >
-                {paying?'Loading...':'Pay Now'}
-              </button>
-            </div>
-          </div>
-        </div>
+        {/* ------------------------------ details ------------------------------ */}
+        <Card title="Your details">
+          <dl>
+            <Row label="Name">{user?.name || '—'}</Row>
+            <Row label="Email">{user?.email || '—'}</Row>
+            <Row label="Business">{user?.businessName || '—'}</Row>
+          </dl>
+          <p className="mt-4 text-sm text-ink-mute">
+            To change any of these, email{' '}
+            <a className="font-medium text-brand-700 underline underline-offset-4" href="mailto:thelogicqr@gmail.com">
+              thelogicqr@gmail.com
+            </a>
+            .
+          </p>
+        </Card>
       </div>
-    )
-  }
     </div>
   );
-};
-
-export default AccountSettings;
+}
